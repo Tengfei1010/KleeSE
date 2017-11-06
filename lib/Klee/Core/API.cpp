@@ -1096,11 +1096,11 @@ static void replaceOrRenameFunction(llvm::Module *module,
  * @return
  */
 int run_main(int argc, char **argv, char **envp) {
-//    atexit(llvm_shutdown);  // Call llvm_shutdown() on exit.
+    atexit(llvm_shutdown);  // Call llvm_shutdown() on exit.
 //
-//    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTarget();
 
-//    parseArguments(argc, argv);
+    parseArguments(argc, argv);
 #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 9)
 //    sys::PrintStackTraceOnErrorSignal(argv[0]);
 #else
