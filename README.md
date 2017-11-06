@@ -34,7 +34,7 @@ There is a main.cpp, which is used to debug KleeSE.
 
 In build fold, you can use KleeSE as executable file. such as 
 ```bash
-$ KleeSE test.bc
+$ ./KleeSE test.bc
 ```
 
 ## How to contribute KleeSE?
