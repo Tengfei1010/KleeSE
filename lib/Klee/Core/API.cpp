@@ -99,11 +99,15 @@ namespace {
 
     cl::opt<bool>
             WriteCVCs("write-cvcs",
-                      cl::desc("Write .cvc files for each test case"));
+                      cl::desc("Write .cvc files for each test case"),
+                      cl::init(true)
+    );
 
     cl::opt<bool>
             WriteKQueries("write-kqueries",
-                          cl::desc("Write .kquery files for each test case"));
+                          cl::desc("Write .kquery files for each test case"),
+                          cl::init(true)
+    );
 
     cl::opt<bool>
             WriteSMT2s("write-smt2s",
@@ -253,10 +257,6 @@ KleeHandler::KleeHandler(int argc, char **argv)
             raw_svector_ostream ds(d);
             ds << i;
             // SmallString is always up-to-date, no need to flush. See Support/raw_ostream.h
-#if LLVM_VERSION_CODE < LLVM_VERSION(3, 8)
-            ds.flush();
-#endif
-
             // create directory and try to link klee-last
             if (mkdir(d.c_str(), 0775) == 0) {
                 m_outputDirectory = d;
@@ -506,11 +506,7 @@ void KleeHandler::loadPathFile(std::string name,
 
 void KleeHandler::getKTestFilesInDir(std::string directoryPath,
                                      std::vector<std::string> &results) {
-#if LLVM_VERSION_CODE < LLVM_VERSION(3, 5)
-    error_code ec;
-#else
     std::error_code ec;
-#endif
     for (llvm::sys::fs::directory_iterator i(directoryPath, ec), e; i != e && !ec;
          i.increment(ec)) {
         std::string f = (*i).path();
@@ -584,70 +580,6 @@ static void parseArguments(int argc, char **argv) {
     cl::ParseCommandLineOptions(argc, argv, " klee\n");
 }
 
-//static int initEnv(Module *mainModule) {
-//
-//    /*
-//      nArgcP = alloc oldArgc->getType()
-//      nArgvV = alloc oldArgv->getType()
-//      store oldArgc nArgcP
-//      store oldArgv nArgvP
-//      klee_init_environment(nArgcP, nArgvP)
-//      nArgc = load nArgcP
-//      nArgv = load nArgvP
-//      oldArgc->replaceAllUsesWith(nArgc)
-//      oldArgv->replaceAllUsesWith(nArgv)
-//    */
-//
-//    Function *mainFn = mainModule->getFunction(EntryPoint);
-//    if (!mainFn) {
-//        klee_error("'%s' function not found in module.", EntryPoint.c_str());
-//    }
-//
-//    if (mainFn->arg_size() < 2) {
-//        klee_error("Cannot handle ""--posix-runtime"" when main() has less than two arguments.\n");
-//    }
-//
-//    Instruction *firstInst = &*(mainFn->begin()->begin());
-//
-//    Value *oldArgc = &*(mainFn->arg_begin());
-////    Value *oldArgv = &*(++mainFn->arg_begin());
-//    Value *oldArgv = &*(mainFn->arg_begin());
-//
-//    // TODO: fixed by llvm different version!!
-//    AllocaInst *argcPtr =
-//            new AllocaInst(oldArgc->getType(), 0, "argcPtr", firstInst);
-//    AllocaInst *argvPtr =
-//            new AllocaInst(oldArgv->getType(), 0, "argvPtr", firstInst);
-//
-//    /* Insert void klee_init_env(int* argc, char*** argv) */
-//    std::vector<const Type *> params;
-//    LLVMContext &ctx = mainModule->getContext();
-//    params.push_back(Type::getInt32Ty(ctx));
-//    params.push_back(Type::getInt32Ty(ctx));
-//    Function *initEnvFn =
-//            cast<Function>(mainModule->getOrInsertFunction("klee_init_env",
-//                                                           Type::getVoidTy(ctx),
-//                                                           argcPtr->getType(),
-//                                                           argvPtr->getType(),
-//                                                           NULL));
-//    assert(initEnvFn);
-//    std::vector<Value *> args;
-//    args.push_back(argcPtr);
-//    args.push_back(argvPtr);
-//    Instruction *initEnvCall = CallInst::Create(initEnvFn, args,
-//                                                "", firstInst);
-//    Value *argc = new LoadInst(argcPtr, "newArgc", firstInst);
-//    Value *argv = new LoadInst(argvPtr, "newArgv", firstInst);
-//
-//    oldArgc->replaceAllUsesWith(argc);
-//    oldArgv->replaceAllUsesWith(argv);
-//
-//    new StoreInst(oldArgc, argcPtr, initEnvCall);
-//    new StoreInst(oldArgv, argvPtr, initEnvCall);
-//
-//    return 0;
-//}
-
 
 // This is a terrible hack until we get some real modeling of the
 // system. All we do is check the undefined symbols and warn about
@@ -715,26 +647,6 @@ static const char *modelledExternals[] = {
 };
 // Symbols we aren't going to warn about
 static const char *dontCareExternals[] = {
-#if 0
-// stdio
-  "fprintf",
-  "fflush",
-  "fopen",
-  "fclose",
-  "fputs_unlocked",
-  "putchar_unlocked",
-  "vfprintf",
-  "fwrite",
-  "puts",
-  "printf",
-  "stdin",
-  "stdout",
-  "stderr",
-  "_stdio_term",
-  "__errno_location",
-  "fstat",
-#endif
-
         // static information, pretty ok to return
         "getegid",
         "geteuid",
@@ -903,25 +815,6 @@ static void interrupt_handle() {
     interrupted = true;
 }
 
-static void interrupt_handle_watchdog() {
-    // just wait for the child to finish
-}
-
-// This is a temporary hack. If the running process has access to
-// externals then it can disable interrupts, which screws up the
-// normal "nice" watchdog termination process. We try to request the
-// interpreter to halt using this mechanism as a last resort to save
-// the state data before going ahead and killing it.
-static void halt_via_gdb(int pid) {
-    char buffer[256];
-    sprintf(buffer,
-            "gdb --batch --eval-command=\"p halt_execution()\" "
-                    "--eval-command=detach --pid=%d &> /dev/null",
-            pid);
-    //  fprintf(stderr, "KLEE: WATCHDOG: running: %s\n", buffer);
-    if (system(buffer) == -1)
-        perror("system");
-}
 
 // returns the end of the string put in buf
 static char *format_tdiff(char *buf, long seconds) {
@@ -940,153 +833,6 @@ static char *format_tdiff(char *buf, long seconds) {
     return buf;
 }
 
-#ifndef SUPPORT_KLEE_UCLIBC
-
-static llvm::Module *linkWithUclibc(llvm::Module *mainModule, StringRef libDir) {
-    klee_error("invalid libc, no uclibc support!\n");
-}
-
-#else
-
-static void replaceOrRenameFunction(llvm::Module *module,
-                                    const char *old_name, const char *new_name) {
-    Function *f, *f2;
-    f = module->getFunction(new_name);
-    f2 = module->getFunction(old_name);
-    if (f2) {
-        if (f) {
-            f2->replaceAllUsesWith(f);
-            f2->eraseFromParent();
-        } else {
-            f2->setName(new_name);
-            assert(f2->getName() == new_name);
-        }
-    }
-}
-//static llvm::Module *linkWithUclibc(llvm::Module *mainModule, StringRef libDir) {
-//  LLVMContext &ctx = mainModule->getContext();
-//  // Ensure that klee-uclibc exists
-//  SmallString<128> uclibcBCA(libDir);
-//  llvm::sys::path::append(uclibcBCA, KLEE_UCLIBC_BCA_NAME);
-//
-//#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 6)
-//  Twine uclibcBCA_twine(uclibcBCA.c_str());
-//  if (!llvm::sys::fs::exists(uclibcBCA_twine))
-//#else
-//  bool uclibcExists=false;
-//  llvm::sys::fs::exists(uclibcBCA.c_str(), uclibcExists);
-//  if (!uclibcExists)
-//#endif
-//    klee_error("Cannot find klee-uclibc : %s", uclibcBCA.c_str());
-//
-//  Function *f;
-//  // force import of __uClibc_main
-//  mainModule->getOrInsertFunction(
-//      "__uClibc_main",
-//      FunctionType::get(Type::getVoidTy(ctx), std::vector<Type *>(), true));
-//
-//  // force various imports
-//  if (WithPOSIXRuntime) {
-//    llvm::Type *i8Ty = Type::getInt8Ty(ctx);
-//    mainModule->getOrInsertFunction("realpath",
-//                                    PointerType::getUnqual(i8Ty),
-//                                    PointerType::getUnqual(i8Ty),
-//                                    PointerType::getUnqual(i8Ty),
-//                                    NULL);
-//    mainModule->getOrInsertFunction("getutent",
-//                                    PointerType::getUnqual(i8Ty),
-//                                    NULL);
-//    mainModule->getOrInsertFunction("__fgetc_unlocked",
-//                                    Type::getInt32Ty(ctx),
-//                                    PointerType::getUnqual(i8Ty),
-//                                    NULL);
-//    mainModule->getOrInsertFunction("__fputc_unlocked",
-//                                    Type::getInt32Ty(ctx),
-//                                    Type::getInt32Ty(ctx),
-//                                    PointerType::getUnqual(i8Ty),
-//                                    NULL);
-//  }
-//
-//  f = mainModule->getFunction("__ctype_get_mb_cur_max");
-//  if (f) f->setName("_stdlib_mb_cur_max");
-//
-//  // Strip of asm prefixes for 64 bit versions because they are not
-//  // present in uclibc and we want to make sure stuff will get
-//  // linked. In the off chance that both prefixed and unprefixed
-//  // versions are present in the module, make sure we don't create a
-//  // naming conflict.
-//  for (Module::iterator fi = mainModule->begin(), fe = mainModule->end();
-//       fi != fe; ++fi) {
-//    Function *f = &*fi;
-//    const std::string &name = f->getName();
-//    if (name[0]=='\01') {
-//      unsigned size = name.size();
-//      if (name[size-2]=='6' && name[size-1]=='4') {
-//        std::string unprefixed = name.substr(1);
-//
-//        // See if the unprefixed version exists.
-//        if (Function *f2 = mainModule->getFunction(unprefixed)) {
-//          f->replaceAllUsesWith(f2);
-//          f->eraseFromParent();
-//        } else {
-//          f->setName(unprefixed);
-//        }
-//      }
-//    }
-//  }
-//
-//  mainModule = klee::linkWithLibrary(mainModule, uclibcBCA.c_str());
-//  assert(mainModule && "unable to link with uclibc");
-//
-//
-//  replaceOrRenameFunction(mainModule, "__libc_open", "open");
-//  replaceOrRenameFunction(mainModule, "__libc_fcntl", "fcntl");
-//
-//  // XXX we need to rearchitect so this can also be used with
-//  // programs externally linked with uclibc.
-//
-//  // We now need to swap things so that __uClibc_main is the entry
-//  // point, in such a way that the arguments are passed to
-//  // __uClibc_main correctly. We do this by renaming the user main
-//  // and generating a stub function to call __uClibc_main. There is
-//  // also an implicit cooperation in that runFunctionAsMain sets up
-//  // the environment arguments to what uclibc expects (following
-//  // argv), since it does not explicitly take an envp argument.
-//  Function *userMainFn = mainModule->getFunction(EntryPoint);
-//  assert(userMainFn && "unable to get user main");
-//  Function *uclibcMainFn = mainModule->getFunction("__uClibc_main");
-//  assert(uclibcMainFn && "unable to get uclibc main");
-//  userMainFn->setName("__user_main");
-//
-//  const FunctionType *ft = uclibcMainFn->getFunctionType();
-//  assert(ft->getNumParams() == 7);
-//
-//  std::vector<Type *> fArgs;
-//  fArgs.push_back(ft->getParamType(1)); // argc
-//  fArgs.push_back(ft->getParamType(2)); // argv
-//  Function *stub = Function::Create(FunctionType::get(Type::getInt32Ty(ctx), fArgs, false),
-//                                    GlobalVariable::ExternalLinkage,
-//                                    EntryPoint,
-//                                    mainModule);
-//  BasicBlock *bb = BasicBlock::Create(ctx, "entry", stub);
-//
-//  std::vector<llvm::Value*> args;
-//  args.push_back(llvm::ConstantExpr::getBitCast(userMainFn,
-//                                                ft->getParamType(0)));
-//  args.push_back(&*(stub->arg_begin())); // argc
-//  args.push_back(&*(stub->arg_begin())); // argv  // TODO fixed!!
-//  args.push_back(Constant::getNullValue(ft->getParamType(3))); // app_init
-//  args.push_back(Constant::getNullValue(ft->getParamType(4))); // app_fini
-//  args.push_back(Constant::getNullValue(ft->getParamType(5))); // rtld_fini
-//  args.push_back(Constant::getNullValue(ft->getParamType(6))); // stack_end
-//  CallInst::Create(uclibcMainFn, args, "", bb);
-//
-//  new UnreachableInst(ctx, bb);
-//
-//  klee_message("NOTE: Using klee-uclibc : %s", uclibcBCA.c_str());
-//  return mainModule;
-//}
-#endif
 
 /*!
  * This is main function in klee
@@ -1097,17 +843,10 @@ static void replaceOrRenameFunction(llvm::Module *module,
  */
 int run_main(int argc, char **argv, char **envp) {
     atexit(llvm_shutdown);  // Call llvm_shutdown() on exit.
-//
     llvm::InitializeNativeTarget();
 
     parseArguments(argc, argv);
-#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 9)
-//    sys::PrintStackTraceOnErrorSignal(argv[0]);
-#else
-    sys::PrintStackTraceOnErrorSignal();
-#endif
-
-
+    sys::PrintStackTraceOnErrorSignal(argv[0]);
     sys::SetInterruptFunction(interrupt_handle);
 
     // Load the bytecode...
@@ -1138,28 +877,8 @@ int run_main(int argc, char **argv, char **envp) {
     int pArgc;
     char **pArgv;
     char **pEnvp;
-    if (Environ != "") {
-        std::vector<std::string> items;
-        std::ifstream f(Environ.c_str());
-        if (!f.good())
-            klee_error("unable to open --environ file: %s", Environ.c_str());
-        while (!f.eof()) {
-            std::string line;
-            std::getline(f, line);
-            line = strip(line);
-            if (!line.empty())
-                items.push_back(line);
-        }
-        f.close();
-        pEnvp = new char *[items.size() + 1];
-        unsigned i = 0;
-        for (; i != items.size(); ++i)
-            pEnvp[i] = strdup(items[i].c_str());
-        pEnvp[i] = 0;
-    } else {
-        pEnvp = envp;
-    }
 
+    pEnvp = envp;
     pArgc = InputArgv.size() + 1;
     pArgv = new char *[pArgc];
     for (unsigned i = 0; i < InputArgv.size() + 1; i++) {

@@ -51,10 +51,10 @@
 /* #undef KLEE_SELINUX_CTX_CONST */
 
 /* LLVM major version number */
-//#define LLVM_VERSION_MAJOR 5
+#define LLVM_VERSION_MAJOR 5
 
 /* LLVM minor version number */
-//#define LLVM_VERSION_MINOR 6
+#define LLVM_VERSION_MINOR 0
 
 /* Define to the address where bug reports for this package should be sent. */
 /* #undef PACKAGE_BUGREPORT */
