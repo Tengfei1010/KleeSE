@@ -1,0 +1,6 @@
+add_subdirectory(Basic)
+add_subdirectory(Core)
+add_subdirectory(Expr)
+add_subdirectory(Module)
+add_subdirectory(Solver)
+add_subdirectory(Support)
