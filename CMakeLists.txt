@@ -52,6 +52,94 @@ else()
     unset(HAVE_ZLIB_H) # For config.h
 endif()
 
+################################################################################
+# Find LLVM
+################################################################################
+include(${CMAKE_SOURCE_DIR}/cmake/string_to_list.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/find_llvm.cmake)
+set(NEEDED_LLVM_VARS
+        LLVM_PACKAGE_VERSION
+        LLVM_VERSION_MAJOR
+        LLVM_VERSION_MINOR
+        LLVM_VERSION_PATCH
+        LLVM_DEFINITIONS
+        LLVM_ENABLE_ASSERTIONS
+        LLVM_ENABLE_EH
+        LLVM_ENABLE_RTTI
+        LLVM_INCLUDE_DIRS
+        LLVM_LIBRARY_DIRS
+        LLVM_TOOLS_BINARY_DIR
+        LLVM_ENABLE_VISIBILITY_INLINES_HIDDEN
+        TARGET_TRIPLE
+        )
+
+foreach (vname ${NEEDED_LLVM_VARS})
+    message(STATUS "${vname}: \"${${vname}}\"")
+    if (NOT (DEFINED "${vname}"))
+        message(FATAL_ERROR "${vname} was not defined")
+    endif()
+endforeach()
+
+if (LLVM_ENABLE_ASSERTIONS)
+    # Certain LLVM debugging macros only work when LLVM was built with asserts
+    set(ENABLE_KLEE_DEBUG 1) # for config.h
+else()
+    unset(ENABLE_KLEE_DEBUG) # for config.h
+endif()
+
+# Warn about mixing build types.
+# This is likely a bad idea because some of LLVM's header files use the NDEBUG
+# macro which can change things like data layout.
+if (LLVM_ENABLE_ASSERTIONS AND (NOT ENABLE_KLEE_ASSERTS))
+    message(WARNING
+            "LLVM was built with assertions but KLEE will be built without them.\n"
+            "This might lead to unexpected behaviour."
+            )
+elseif ((NOT LLVM_ENABLE_ASSERTIONS) AND ENABLE_KLEE_ASSERTS)
+    message(WARNING
+            "LLVM was built without assertions but KLEE will be built with them.\n"
+            "This might lead to unexpected behaviour."
+            )
+endif()
+
+if (LLVM_ENABLE_VISIBILITY_INLINES_HIDDEN)
+    list(APPEND KLEE_COMPONENT_CXX_FLAGS "-fvisibility-inlines-hidden")
+endif()
+
+
+list(APPEND KLEE_COMPONENT_CXX_DEFINES ${LLVM_DEFINITIONS})
+list(APPEND KLEE_COMPONENT_EXTRA_INCLUDE_DIRS ${LLVM_INCLUDE_DIRS})
+
+# Find llvm-link
+set(LLVM_LINK "${LLVM_TOOLS_BINARY_DIR}/llvm-link")
+if (NOT EXISTS "${LLVM_LINK}")
+    message(FATAL_ERROR "Failed to find llvm-link at \"${LLVM_LINK}\"")
+endif()
+
+# Find llvm-ar
+set(LLVM_AR "${LLVM_TOOLS_BINARY_DIR}/llvm-ar")
+if (NOT EXISTS "${LLVM_AR}")
+    message(FATAL_ERROR "Failed to find llvm-ar at \"${LLVM_AR}\"")
+endif()
+
+# Find llvm-as
+set(LLVM_AS "${LLVM_TOOLS_BINARY_DIR}/llvm-as")
+if (NOT EXISTS "${LLVM_AS}")
+    message(FATAL_ERROR "Failed to find llvm-as at \"${LLVM_AS}\"")
+endif()
+
+################################################################################
+# Find bitcode compiler
+################################################################################
+include("${CMAKE_SOURCE_DIR}/cmake/find_bitcode_compiler.cmake")
+message(STATUS "LLVMCC: ${LLVMCC}")
+if (NOT EXISTS "${LLVMCC}")
+    message(FATAL_ERROR "Cannot find C bitcode compiler \"${LLVMCC}\"")
+endif()
+message(STATUS "LLVMCXX: ${LLVMCXX}")
+if (NOT EXISTS "${LLVMCXX}")
+    message(FATAL_ERROR "Cannot find C++ bitcode compiler \"${LLVMCXX}\"")
+endif()
 
 ################################################################################
 # KLeeSE runtime support
@@ -161,6 +249,7 @@ link_directories(${LLVM_LIBRARY_DIRS})
 include_directories("${CMAKE_BINARY_DIR}/include")
 include_directories("${PROJECT_SOURCE_DIR}/include")
 add_subdirectory(lib)
+add_subdirectory(runtime)
 
 set(SOURCE_FILES main.cpp)
 add_executable(KleeSE ${SOURCE_FILES})

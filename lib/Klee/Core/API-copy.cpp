@@ -253,9 +253,9 @@ KleeHandler::KleeHandler(int argc, char **argv)
             raw_svector_ostream ds(d);
             ds << i;
             // SmallString is always up-to-date, no need to flush. See Support/raw_ostream.h
-            #if LLVM_VERSION_CODE < LLVM_VERSION(3, 8)
-                        ds.flush();
-            #endif
+#if LLVM_VERSION_CODE < LLVM_VERSION(3, 8)
+            ds.flush();
+#endif
 
             // create directory and try to link klee-last
             if (mkdir(d.c_str(), 0775) == 0) {
@@ -940,29 +940,28 @@ static char *format_tdiff(char *buf, long seconds) {
     return buf;
 }
 
-#ifndef SUPPORT_KLEE_UCLIBC
+//#ifndef SUPPORT_KLEE_UCLIBC
+//static llvm::Module *linkWithUclibc(llvm::Module *mainModule, StringRef libDir) {
+//    klee_error("invalid libc, no uclibc support!\n");
+//}
+//#else
 
-static llvm::Module *linkWithUclibc(llvm::Module *mainModule, StringRef libDir) {
-    klee_error("invalid libc, no uclibc support!\n");
-}
+//static void replaceOrRenameFunction(llvm::Module *module,
+//                                    const char *old_name, const char *new_name) {
+//    Function *f, *f2;
+//    f = module->getFunction(new_name);
+//    f2 = module->getFunction(old_name);
+//    if (f2) {
+//        if (f) {
+//            f2->replaceAllUsesWith(f);
+//            f2->eraseFromParent();
+//        } else {
+//            f2->setName(new_name);
+//            assert(f2->getName() == new_name);
+//        }
+//    }
+//}
 
-#else
-
-static void replaceOrRenameFunction(llvm::Module *module,
-                                    const char *old_name, const char *new_name) {
-    Function *f, *f2;
-    f = module->getFunction(new_name);
-    f2 = module->getFunction(old_name);
-    if (f2) {
-        if (f) {
-            f2->replaceAllUsesWith(f);
-            f2->eraseFromParent();
-        } else {
-            f2->setName(new_name);
-            assert(f2->getName() == new_name);
-        }
-    }
-}
 //static llvm::Module *linkWithUclibc(llvm::Module *mainModule, StringRef libDir) {
 //  LLVMContext &ctx = mainModule->getContext();
 //  // Ensure that klee-uclibc exists
@@ -1086,7 +1085,8 @@ static void replaceOrRenameFunction(llvm::Module *module,
 //  klee_message("NOTE: Using klee-uclibc : %s", uclibcBCA.c_str());
 //  return mainModule;
 //}
-#endif
+
+//#endif
 
 /*!
  * This is main function in klee
@@ -1097,17 +1097,10 @@ static void replaceOrRenameFunction(llvm::Module *module,
  */
 int run_main(int argc, char **argv, char **envp) {
     atexit(llvm_shutdown);  // Call llvm_shutdown() on exit.
-
     llvm::InitializeNativeTarget();
 
-//    parseArguments(argc, argv);
-#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 9)
-//    sys::PrintStackTraceOnErrorSignal(argv[0]);
-#else
-    sys::PrintStackTraceOnErrorSignal();
-#endif
-
-
+    parseArguments(argc, argv);
+    sys::PrintStackTraceOnErrorSignal(argv[0]);
     sys::SetInterruptFunction(interrupt_handle);
 
     // Load the bytecode...
@@ -1126,6 +1119,40 @@ int run_main(int argc, char **argv, char **envp) {
             /*CheckDivZero=*/CheckDivZero,
             /*CheckOvershift=*/CheckOvershift);
 
+    switch (Libc) {
+        case NoLibc: /* silence compiler warning */
+            break;
+
+        case KleeLibc: {
+            // FIXME: Find a reasonable solution for this.
+            SmallString<128> Path(Opts.LibraryDir);
+            llvm::sys::path::append(Path, "klee-libc.bc");
+            mainModule = klee::linkWithLibrary(mainModule, Path.c_str());
+            assert(mainModule && "unable to link with klee-libc");
+            break;
+        }
+
+        case UcLibc:
+            mainModule = linkWithUclibc(mainModule, LibraryDir);
+            break;
+    }
+
+    if (WithPOSIXRuntime) {
+        SmallString<128> Path(Opts.LibraryDir);
+        llvm::sys::path::append(Path, "libkleeRuntimePOSIX.bca");
+        klee_message("NOTE: Using model: %s", Path.c_str());
+        mainModule = klee::linkWithLibrary(mainModule, Path.c_str());
+        assert(mainModule && "unable to link with simple model");
+    }
+
+    std::vector<std::string>::iterator libs_it;
+    std::vector<std::string>::iterator libs_ie;
+    for (libs_it = LinkLibraries.begin(), libs_ie = LinkLibraries.end();
+         libs_it != libs_ie; ++libs_it) {
+        const char * libFilename = libs_it->c_str();
+        klee_message("Linking in library: %s.\n", libFilename);
+        mainModule = klee::linkWithLibrary(mainModule, libFilename);
+    }
 
     // Get the desired main function.  klee_main initializes uClibc
     // locale and other data and then calls main.
@@ -1163,6 +1190,7 @@ int run_main(int argc, char **argv, char **envp) {
     pArgc = InputArgv.size() + 1;
     pArgv = new char *[pArgc];
     for (unsigned i = 0; i < InputArgv.size() + 1; i++) {
+
         std::string &arg = (i == 0 ? InputFile : InputArgv[i - 1]);
         unsigned size = arg.size() + 1;
         char *pArg = new char[size];
