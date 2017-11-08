@@ -122,6 +122,4 @@ public:
 
 int run_main(int argc, char **argv, char **envp);
 
-int test_run(int a1, int a2);
-
 #endif //PROJECT_API_H

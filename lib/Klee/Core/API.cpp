@@ -59,7 +59,6 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
-
 #include <cerrno>
 #include <fstream>
 #include <iomanip>
@@ -834,6 +833,149 @@ static char *format_tdiff(char *buf, long seconds) {
 }
 
 
+static void replaceOrRenameFunction(llvm::Module *module,
+                                    const char *old_name, const char *new_name) {
+    Function *f, *f2;
+    f = module->getFunction(new_name);
+    f2 = module->getFunction(old_name);
+    if (f2) {
+        if (f) {
+            f2->replaceAllUsesWith(f);
+            f2->eraseFromParent();
+        } else {
+            f2->setName(new_name);
+            assert(f2->getName() == new_name);
+        }
+    }
+}
+
+#ifndef SUPPORT_KLEE_UCLIBC
+
+static llvm::Module *linkWithUclibc(llvm::Module *mainModule, StringRef libDir) {
+    klee_error("invalid libc, no uclibc support!\n");
+}
+
+#else
+static llvm::Module *linkWithUclibc(llvm::Module *mainModule, StringRef libDir) {
+    LLVMContext &ctx = mainModule->getContext();
+    // Ensure that klee-uclibc exists
+    SmallString<128> uclibcBCA(libDir);
+    llvm::sys::path::append(uclibcBCA, KLEE_UCLIBC_BCA_NAME);
+
+    Twine uclibcBCA_twine(uclibcBCA.c_str());
+    if (!llvm::sys::fs::exists(uclibcBCA_twine))
+        klee_error("Cannot find klee-uclibc : %s", uclibcBCA.c_str());
+
+    Function *f;
+    // force import of __uClibc_main
+    mainModule->getOrInsertFunction(
+            "__uClibc_main",
+            FunctionType::get(Type::getVoidTy(ctx), std::vector<Type *>(), true));
+
+    // force various imports
+    if (WithPOSIXRuntime) {
+        llvm::Type *i8Ty = Type::getInt8Ty(ctx);
+        mainModule->getOrInsertFunction("realpath",
+                                        PointerType::getUnqual(i8Ty),
+                                        PointerType::getUnqual(i8Ty),
+                                        PointerType::getUnqual(i8Ty)
+        );
+        mainModule->getOrInsertFunction("getutent",
+                                        PointerType::getUnqual(i8Ty)
+        );
+        mainModule->getOrInsertFunction("__fgetc_unlocked",
+                                        Type::getInt32Ty(ctx),
+                                        PointerType::getUnqual(i8Ty)
+        );
+        mainModule->getOrInsertFunction("__fputc_unlocked",
+                                        Type::getInt32Ty(ctx),
+                                        Type::getInt32Ty(ctx),
+                                        PointerType::getUnqual(i8Ty)
+        );
+    }
+
+    f = mainModule->getFunction("__ctype_get_mb_cur_max");
+    if (f) f->setName("_stdlib_mb_cur_max");
+
+    // Strip of asm prefixes for 64 bit versions because they are not
+    // present in uclibc and we want to make sure stuff will get
+    // linked. In the off chance that both prefixed and unprefixed
+    // versions are present in the module, make sure we don't create a
+    // naming conflict.
+    for (Module::iterator fi = mainModule->begin(), fe = mainModule->end();
+         fi != fe; ++fi) {
+        Function *f = &*fi;
+        const std::string &name = f->getName();
+        if (name[0] == '\01') {
+            unsigned size = name.size();
+            if (name[size - 2] == '6' && name[size - 1] == '4') {
+                std::string unprefixed = name.substr(1);
+
+                // See if the unprefixed version exists.
+                if (Function *f2 = mainModule->getFunction(unprefixed)) {
+                    f->replaceAllUsesWith(f2);
+                    f->eraseFromParent();
+                } else {
+                    f->setName(unprefixed);
+                }
+            }
+        }
+    }
+
+    mainModule = klee::linkWithLibrary(mainModule, uclibcBCA.c_str());
+    assert(mainModule && "unable to link with uclibc");
+
+
+    replaceOrRenameFunction(mainModule, "__libc_open", "open");
+    replaceOrRenameFunction(mainModule, "__libc_fcntl", "fcntl");
+
+    // XXX we need to rearchitect so this can also be used with
+    // programs externally linked with uclibc.
+
+    // We now need to swap things so that __uClibc_main is the entry
+    // point, in such a way that the arguments are passed to
+    // __uClibc_main correctly. We do this by renaming the user main
+    // and generating a stub function to call __uClibc_main. There is
+    // also an implicit cooperation in that runFunctionAsMain sets up
+    // the environment arguments to what uclibc expects (following
+    // argv), since it does not explicitly take an envp argument.
+    Function *userMainFn = mainModule->getFunction(EntryPoint);
+    assert(userMainFn && "unable to get user main");
+    Function *uclibcMainFn = mainModule->getFunction("__uClibc_main");
+    assert(uclibcMainFn && "unable to get uclibc main");
+    userMainFn->setName("__user_main");
+
+    const FunctionType *ft = uclibcMainFn->getFunctionType();
+    assert(ft->getNumParams() == 7);
+
+    std::vector<Type *> fArgs;
+    fArgs.push_back(ft->getParamType(1)); // argc
+    fArgs.push_back(ft->getParamType(2)); // argv
+    Function *stub = Function::Create(FunctionType::get(Type::getInt32Ty(ctx), fArgs, false),
+                                      GlobalVariable::ExternalLinkage,
+                                      EntryPoint,
+                                      mainModule);
+    BasicBlock *bb = BasicBlock::Create(ctx, "entry", stub);
+
+    std::vector<llvm::Value *> args;
+    args.push_back(llvm::ConstantExpr::getBitCast(userMainFn,
+                                                  ft->getParamType(0)));
+    args.push_back(&*(stub->arg_begin())); // argc
+    args.push_back(&*(stub->arg_begin())); // argv  // TODO fixed!!
+    args.push_back(Constant::getNullValue(ft->getParamType(3))); // app_init
+    args.push_back(Constant::getNullValue(ft->getParamType(4))); // app_fini
+    args.push_back(Constant::getNullValue(ft->getParamType(5))); // rtld_fini
+    args.push_back(Constant::getNullValue(ft->getParamType(6))); // stack_end
+    CallInst::Create(uclibcMainFn, args, "", bb);
+
+    new UnreachableInst(ctx, bb);
+
+    klee_message("NOTE: Using klee-uclibc : %s", uclibcBCA.c_str());
+    return mainModule;
+}
+
+#endif
+
 /*!
  * This is main function in klee
  * @param argc
@@ -865,6 +1007,40 @@ int run_main(int argc, char **argv, char **envp) {
             /*CheckDivZero=*/CheckDivZero,
             /*CheckOvershift=*/CheckOvershift);
 
+    switch (Libc) {
+        case NoLibc: /* silence compiler warning */
+            break;
+
+        case KleeLibc: {
+            // FIXME: Find a reasonable solution for this.
+            SmallString<128> Path(Opts.LibraryDir);
+            llvm::sys::path::append(Path, "klee-libc.bc");
+            mainModule = klee::linkWithLibrary(mainModule, Path.c_str());
+            assert(mainModule && "unable to link with klee-libc");
+            break;
+        }
+
+        case UcLibc:
+            mainModule = linkWithUclibc(mainModule, LibraryDir);
+            break;
+    }
+
+    if (WithPOSIXRuntime) {
+        SmallString<128> Path(Opts.LibraryDir);
+        llvm::sys::path::append(Path, "libkleeRuntimePOSIX.bca");
+        klee_message("NOTE: Using model: %s", Path.c_str());
+        mainModule = klee::linkWithLibrary(mainModule, Path.c_str());
+        assert(mainModule && "unable to link with simple model");
+    }
+
+    std::vector<std::string>::iterator libs_it;
+    std::vector<std::string>::iterator libs_ie;
+    for (libs_it = LinkLibraries.begin(), libs_ie = LinkLibraries.end();
+         libs_it != libs_ie; ++libs_it) {
+        const char *libFilename = libs_it->c_str();
+        klee_message("Linking in library: %s.\n", libFilename);
+        mainModule = klee::linkWithLibrary(mainModule, libFilename);
+    }
 
     // Get the desired main function.  klee_main initializes uClibc
     // locale and other data and then calls main.
@@ -1092,8 +1268,4 @@ int run_main(int argc, char **argv, char **envp) {
     delete handler;
 
     return 0;
-}
-
-int test_run(int a1, int a2) {
-    return a1 + a2;
 }
