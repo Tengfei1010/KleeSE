@@ -19,18 +19,19 @@
 #include "Klee/Internal/Module/KModule.h"
 
 #include "Klee/Internal/Support/ErrorHandling.h"
-#include "Klee/util/GetElementPtrTypeIterator.h"
 
-#include "llvm/IR/Function.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Operator.h"
+#include "llvm/IR/GetElementPtrTypeIterator.h"
+
 #include "llvm/Support/raw_ostream.h"
 
 #include <cassert>
 
-using namespace klee;
 using namespace llvm;
 
 namespace klee {
@@ -58,9 +59,11 @@ namespace klee {
                 return ConstantExpr::create(0, getWidthForLLVMType(c->getType()));
             } else if (const ConstantDataSequential *cds =
                     dyn_cast<ConstantDataSequential>(c)) {
+                // Handle a vector or array: first element has the smallest address,
+                // the last element the highest
                 std::vector<ref<Expr> > kids;
-                for (unsigned i = 0, e = cds->getNumElements(); i != e; ++i) {
-                    ref<Expr> kid = evalConstant(cds->getElementAsConstant(i), ki);
+                for (unsigned i = cds->getNumElements(); i != 0; --i) {
+                    ref<Expr> kid = evalConstant(cds->getElementAsConstant(i - 1), ki);
                     kids.push_back(kid);
                 }
                 ref<Expr> res = ConcatExpr::createN(kids.size(), kids.data());
@@ -186,17 +189,16 @@ namespace klee {
 
             case Instruction::GetElementPtr: {
                 ref<ConstantExpr> base = op1->ZExt(Context::get().getPointerWidth());
-
-                for (gep_type_iterator ii = gep_type_begin(ce), ie = gep_type_end(ce); ii != ie;
-                     ++ii) {
-
+                for (gep_type_iterator ii = gep_type_begin(ce), ie = gep_type_end(ce);
+                     ii != ie; ++ii) {
                     ref<ConstantExpr> indexOp =
                             evalConstant(cast<Constant>(ii.getOperand()), ki);
                     if (indexOp->isZero())
                         continue;
 
                     // Handle a struct index, which adds its field offset to the pointer.
-                    if (StructType *STy = dyn_cast<StructType>(*ii)) {
+                    if (ii.isStruct()) {
+                        StructType *STy = ii.getStructType();
                         unsigned ElementIdx = indexOp->getZExtValue();
                         const StructLayout *SL = kmodule->targetData->getStructLayout(STy);
                         base = base->Add(

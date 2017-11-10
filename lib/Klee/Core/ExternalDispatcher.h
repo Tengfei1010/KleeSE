@@ -18,29 +18,36 @@
 #include <string>
 
 namespace llvm {
-class Instruction;
-class LLVMContext;
-class Function;
+    class Instruction;
+
+    class LLVMContext;
+
+    class Function;
 }
 
 namespace klee {
-class ExternalDispatcherImpl;
-class ExternalDispatcher {
-private:
-  ExternalDispatcherImpl *impl;
+    class ExternalDispatcherImpl;
 
-public:
-  ExternalDispatcher(llvm::LLVMContext &ctx);
-  ~ExternalDispatcher();
+    class ExternalDispatcher {
+    private:
+        ExternalDispatcherImpl *impl;
 
-  /* Call the given function using the parameter passing convention of
-   * ci with arguments in args[1], args[2], ... and writing the result
-   * into args[0].
-   */
-  bool executeCall(llvm::Function *function, llvm::Instruction *i,
-                   uint64_t *args);
-  void *resolveSymbol(const std::string &name);
-};
+    public:
+        ExternalDispatcher(llvm::LLVMContext &ctx);
+
+        ~ExternalDispatcher();
+
+        /* Call the given function using the parameter passing convention of
+         * ci with arguments in args[1], args[2], ... and writing the result
+         * into args[0].
+         */
+        bool executeCall(llvm::Function *function, llvm::Instruction *i,
+                         uint64_t *args);
+
+        void *resolveSymbol(const std::string &name);
+
+        int getLastErrno();
+    };
 }
 
 #endif

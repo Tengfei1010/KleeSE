@@ -24,3 +24,9 @@ set(LLVM_COMPONENTS
         )
 llvm_map_components_to_libnames(LLVM_LIBS ${LLVM_COMPONENTS})
 target_link_libraries(KleeSupport PUBLIC ${LLVM_LIBS})
+
+find_package(ZLIB)
+if (ZLIB_FOUND)
+    include_directories(${ZLIB_INCLUDE_DIRS})
+    target_link_libraries(KleeSupport PUBLIC ${ZLIB_LIBRARIES})
+endif()

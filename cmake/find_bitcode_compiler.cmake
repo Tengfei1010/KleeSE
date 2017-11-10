@@ -27,19 +27,19 @@ else()
   message(FATAL_ERROR "Failed to find C bitcode compiler")
 endif()
 
-#find_program(
-#  LLVMCXX
-#  NAMES "clang++-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}" "clang++" "llvm-g++"
-#   # Give the LLVM tools directory higher priority than the system directory.
-#  HINTS "${LLVM_TOOLS_BINARY_DIR}"
-#)
-
 find_program(
-        LLVMCXX
-        NAMES "clang++-3.4" "clang++" "llvm-g++"
-        # Give the LLVM tools directory higher priority than the system directory.
-        HINTS "${LLVM_TOOLS_BINARY_DIR}"
+  LLVMCXX
+  NAMES "clang++-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}" "clang++" "llvm-g++"
+   # Give the LLVM tools directory higher priority than the system directory.
+  HINTS "${LLVM_TOOLS_BINARY_DIR}"
 )
+
+#find_program(
+#        LLVMCXX
+#        NAMES "clang++-3.4" "clang++" "llvm-g++"
+#        # Give the LLVM tools directory higher priority than the system directory.
+#        HINTS "${LLVM_TOOLS_BINARY_DIR}"
+#)
 if (LLVMCXX)
   message(STATUS "Found ${LLVMCXX}")
 else()

@@ -579,6 +579,66 @@ static void parseArguments(int argc, char **argv) {
     cl::ParseCommandLineOptions(argc, argv, " klee\n");
 }
 
+static int initEnv(Module *mainModule) {
+
+    /*
+      nArgcP = alloc oldArgc->getType()
+      nArgvV = alloc oldArgv->getType()
+      store oldArgc nArgcP
+      store oldArgv nArgvP
+      klee_init_environment(nArgcP, nArgvP)
+      nArgc = load nArgcP
+      nArgv = load nArgvP
+      oldArgc->replaceAllUsesWith(nArgc)
+      oldArgv->replaceAllUsesWith(nArgv)
+    */
+
+    Function *mainFn = mainModule->getFunction(EntryPoint);
+    if (!mainFn) {
+        klee_error("'%s' function not found in module.", EntryPoint.c_str());
+    }
+
+    if (mainFn->arg_size() < 2) {
+        klee_error("Cannot handle ""--posix-runtime"" when main() has less than two arguments.\n");
+    }
+
+    Instruction *firstInst = &*(mainFn->begin()->begin());
+
+    Value *oldArgc = &*(mainFn->arg_begin());
+    Value *oldArgv = &*(mainFn->arg_begin() + 1);
+
+    AllocaInst* argcPtr =
+            new AllocaInst(oldArgc->getType(), 0, "argcPtr", firstInst);
+    AllocaInst* argvPtr =
+            new AllocaInst(oldArgv->getType(), 0, "argvPtr", firstInst);
+
+    /* Insert void klee_init_env(int* argc, char*** argv) */
+    std::vector<const Type*> params;
+    LLVMContext &ctx = mainModule->getContext();
+    params.push_back(Type::getInt32Ty(ctx));
+    params.push_back(Type::getInt32Ty(ctx));
+    Function* initEnvFn =
+            cast<Function>(mainModule->getOrInsertFunction("klee_init_env",
+                                                           Type::getVoidTy(ctx),
+                                                           argcPtr->getType(),
+                                                           argvPtr->getType()));
+    assert(initEnvFn);
+    std::vector<Value*> args;
+    args.push_back(argcPtr);
+    args.push_back(argvPtr);
+    Instruction* initEnvCall = CallInst::Create(initEnvFn, args,
+                                                "", firstInst);
+    Value *argc = new LoadInst(argcPtr, "newArgc", firstInst);
+    Value *argv = new LoadInst(argvPtr, "newArgv", firstInst);
+
+    oldArgc->replaceAllUsesWith(argc);
+    oldArgv->replaceAllUsesWith(argv);
+
+    new StoreInst(oldArgc, argcPtr, initEnvCall);
+    new StoreInst(oldArgv, argvPtr, initEnvCall);
+
+    return 0;
+}
 
 // This is a terrible hack until we get some real modeling of the
 // system. All we do is check the undefined symbols and warn about
@@ -849,18 +909,11 @@ static void replaceOrRenameFunction(llvm::Module *module,
     }
 }
 
-#ifndef SUPPORT_KLEE_UCLIBC
-
-static llvm::Module *linkWithUclibc(llvm::Module *mainModule, StringRef libDir) {
-    klee_error("invalid libc, no uclibc support!\n");
-}
-
-#else
 static llvm::Module *linkWithUclibc(llvm::Module *mainModule, StringRef libDir) {
     LLVMContext &ctx = mainModule->getContext();
     // Ensure that klee-uclibc exists
     SmallString<128> uclibcBCA(libDir);
-    llvm::sys::path::append(uclibcBCA, KLEE_UCLIBC_BCA_NAME);
+    llvm::sys::path::append(uclibcBCA, "klee-uclibc.bca");
 
     Twine uclibcBCA_twine(uclibcBCA.c_str());
     if (!llvm::sys::fs::exists(uclibcBCA_twine))
@@ -960,12 +1013,14 @@ static llvm::Module *linkWithUclibc(llvm::Module *mainModule, StringRef libDir) 
     std::vector<llvm::Value *> args;
     args.push_back(llvm::ConstantExpr::getBitCast(userMainFn,
                                                   ft->getParamType(0)));
+
     args.push_back(&*(stub->arg_begin())); // argc
-    args.push_back(&*(stub->arg_begin())); // argv  // TODO fixed!!
+    args.push_back(&*(stub->arg_begin() + 1)); // argv  //TODO fixed!!
     args.push_back(Constant::getNullValue(ft->getParamType(3))); // app_init
     args.push_back(Constant::getNullValue(ft->getParamType(4))); // app_fini
     args.push_back(Constant::getNullValue(ft->getParamType(5))); // rtld_fini
     args.push_back(Constant::getNullValue(ft->getParamType(6))); // stack_end
+
     CallInst::Create(uclibcMainFn, args, "", bb);
 
     new UnreachableInst(ctx, bb);
@@ -974,7 +1029,6 @@ static llvm::Module *linkWithUclibc(llvm::Module *mainModule, StringRef libDir) 
     return mainModule;
 }
 
-#endif
 
 /*!
  * This is main function in klee
@@ -1000,6 +1054,11 @@ int run_main(int argc, char **argv, char **envp) {
                    errorMsg.c_str());
     }
 
+    if (WithPOSIXRuntime) {
+        int r = initEnv(mainModule);
+        if (r != 0)
+            return r;
+    }
 
     std::string LibraryDir = KleeHandler::getRunTimeLibraryPath(argv[0]);
     Interpreter::ModuleOptions Opts(LibraryDir.c_str(), EntryPoint,
