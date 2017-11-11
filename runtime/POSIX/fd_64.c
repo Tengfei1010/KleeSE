@@ -16,7 +16,7 @@
 #endif
 
 
-#include "Klee/Config/Version.h"
+#include "klee/Config/Version.h"
 #define _LARGEFILE64_SOURCE
 #define _FILE_OFFSET_BITS 64
 #include "fd.h"
@@ -38,7 +38,7 @@
 #include <sys/mtio.h>
 #include <termios.h>
 #include <sys/select.h>
-#include <Klee/klee.h>
+#include <klee/klee.h>
 
 /*** Forward to actual implementations ***/
 

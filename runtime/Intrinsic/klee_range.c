@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include <assert.h>
-#include <Klee/klee.h>
+#include <klee/klee.h>
 
 int klee_range(int start, int end, const char* name) {
   int x;

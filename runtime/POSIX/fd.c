@@ -27,7 +27,7 @@
 #include <sys/mtio.h>
 #include <termios.h>
 #include <sys/select.h>
-#include <Klee/klee.h>
+#include <klee/klee.h>
 
 /* #define DEBUG */
 

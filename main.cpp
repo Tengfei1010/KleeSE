@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "Klee/API.h"
+#include "klee/API.h"
 
 
 int main(int argc, char **argv, char **envp) {

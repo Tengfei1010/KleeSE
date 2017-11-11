@@ -17,7 +17,7 @@
 #endif
 #endif
 
-#include "Klee/Config/Version.h"
+#include "klee/Config/Version.h"
 #define _LARGEFILE64_SOURCE
 #include "fd.h"
 

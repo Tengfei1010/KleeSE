@@ -9,7 +9,7 @@
 
 #include <stdlib.h>
 
-#include "Klee/klee.h"
+#include "klee/klee.h"
 
 void abort(void) {
   klee_abort();

@@ -12,7 +12,7 @@
 #include <sys/syscall.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <Klee/klee.h>
+#include <klee/klee.h>
 #include <string.h>
 
 #if 0

@@ -18,9 +18,9 @@
 #include <sys/time.h>
 #include <time.h>
 
-#include "Klee/klee.h"
+#include "klee/klee.h"
 
-#include "Klee/Internal/ADT/KTest.h"
+#include "klee/Internal/ADT/KTest.h"
 
 static KTest *testData = 0;
 static unsigned testPosition = 0;

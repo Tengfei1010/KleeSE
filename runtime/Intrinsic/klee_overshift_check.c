@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <Klee/klee.h>
+#include <klee/klee.h>
 
 /* This instrumentation call is used to check for overshifting.
  * If we do try to do x << y or x >> y

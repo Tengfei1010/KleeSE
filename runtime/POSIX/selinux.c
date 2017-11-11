@@ -9,7 +9,7 @@
 
 /* Very basic SELinux support */
 
-#include "Klee/Config/config.h"
+#include "klee/Config/config.h"
 
 #ifdef HAVE_SELINUX_SELINUX_H
 

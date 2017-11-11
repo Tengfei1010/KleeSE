@@ -26,7 +26,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include "Klee/Config/config.h"
+#include "klee/Config/config.h"
 
 void klee_warning(const char*);
 void klee_warning_once(const char*);

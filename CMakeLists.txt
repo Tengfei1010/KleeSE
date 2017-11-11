@@ -142,7 +142,7 @@ if (NOT EXISTS "${LLVMCXX}")
 endif()
 
 ################################################################################
-# KLeeSE runtime support
+# KleeSE runtime support
 ################################################################################
 # This is set here and not in `runtime` because `config.h` needs to be generated.
 
@@ -174,7 +174,7 @@ set(KLEE_RUNTIME_DIRECTORY "${CMAKE_BINARY_DIR}/${KLEE_RUNTIME_BUILD_TYPE}/lib")
 
 
 ################################################################################
-# KLeeSE POSIX Runtime Support
+# KleeSE POSIX Runtime Support
 ################################################################################
 option(ENABLE_POSIX_RUNTIME "Enable KLEE's POSIX runtime" OFF)
 if (ENABLE_POSIX_RUNTIME)
@@ -189,57 +189,57 @@ else()
 endif()
 
 ################################################################################
-# KLeeSE uclibc support
+# kleeSE uclibc support
 ################################################################################
-option(ENABLE_KLEE_UCLIBC "Enable support for klee-uclibc" OFF)
-if (ENABLE_KLEE_UCLIBC)
+option(ENABLE_klee_UCLIBC "Enable support for klee-uclibc" OFF)
+if (ENABLE_klee_UCLIBC)
     message(STATUS "klee-uclibc support enabled")
-    set(SUPPORT_KLEE_UCLIBC 1) # For config.h
-    set(KLEE_UCLIBC_PATH "" CACHE PATH "Path to klee-uclibc root directory")
-    if (NOT IS_DIRECTORY "${KLEE_UCLIBC_PATH}")
+    set(SUPPORT_klee_UCLIBC 1) # For config.h
+    set(klee_UCLIBC_PATH "" CACHE PATH "Path to klee-uclibc root directory")
+    if (NOT IS_DIRECTORY "${klee_UCLIBC_PATH}")
         message(FATAL_ERROR
-                "KLEE_UCLIBC_PATH (\"${KLEE_UCLIBC_PATH}\") is not a valid directory.\n"
-                "Try passing -DKLEE_UCLIBC_PATH=<path> to cmake where <path> is the path"
+                "klee_UCLIBC_PATH (\"${klee_UCLIBC_PATH}\") is not a valid directory.\n"
+                "Try passing -Dklee_UCLIBC_PATH=<path> to cmake where <path> is the path"
                 " to the root of the klee-uclibc directory.")
     endif()
 
     # Find the C library bitcode archive
-    set(KLEE_UCLIBC_BCA_NAME "klee-uclibc.bca")
-    set(KLEE_UCLIBC_C_BCA "${KLEE_UCLIBC_PATH}/lib/libc.a")
-    if (NOT EXISTS "${KLEE_UCLIBC_C_BCA}")
+    set(klee_UCLIBC_BCA_NAME "klee-uclibc.bca")
+    set(klee_UCLIBC_C_BCA "${klee_UCLIBC_PATH}/lib/libc.a")
+    if (NOT EXISTS "${klee_UCLIBC_C_BCA}")
         message(FATAL_ERROR
-                "klee-uclibc library not found at \"${KLEE_UCLIBC_C_BCA}\"")
+                "klee-uclibc library not found at \"${klee_UCLIBC_C_BCA}\"")
     endif()
-    message(STATUS "Found klee-uclibc library: \"${KLEE_UCLIBC_C_BCA}\"")
+    message(STATUS "Found klee-uclibc library: \"${klee_UCLIBC_C_BCA}\"")
 
-    # Make a symlink to KLEE_UCLIBC_C_BCA so KLEE can find it where it
+    # Make a symlink to klee_UCLIBC_C_BCA so klee can find it where it
     # is expected.
-    file(MAKE_DIRECTORY "${KLEE_RUNTIME_DIRECTORY}")
+    file(MAKE_DIRECTORY "${klee_RUNTIME_DIRECTORY}")
     execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
-            "${KLEE_UCLIBC_C_BCA}"
-            "${KLEE_RUNTIME_DIRECTORY}/${KLEE_UCLIBC_BCA_NAME}"
+            "${klee_UCLIBC_C_BCA}"
+            "${klee_RUNTIME_DIRECTORY}/${klee_UCLIBC_BCA_NAME}"
             )
-    list(APPEND KLEE_COMPONENT_CXX_DEFINES
-            -DKLEE_UCLIBC_BCA_NAME=\"${KLEE_UCLIBC_BCA_NAME}\")
+    list(APPEND klee_COMPONENT_CXX_DEFINES
+            -Dklee_UCLIBC_BCA_NAME=\"${klee_UCLIBC_BCA_NAME}\")
 
     # Add klee-uclibc to the install target. We install the original
     # file rather than the symlink because CMake would just copy the symlink
     # rather than the file.
-    install(FILES "${KLEE_UCLIBC_C_BCA}"
-            DESTINATION "${KLEE_INSTALL_RUNTIME_DIR}"
-            RENAME "${KLEE_UCLIBC_BCA_NAME}"
+    install(FILES "${klee_UCLIBC_C_BCA}"
+            DESTINATION "${klee_INSTALL_RUNTIME_DIR}"
+            RENAME "${klee_UCLIBC_BCA_NAME}"
             )
 
 else()
     message(STATUS "klee-uclibc support disabled")
-    set(SUPPORT_KLEE_UCLIBC 0) # For config.h
+    set(SUPPORT_klee_UCLIBC 0) # For config.h
 endif()
 
 ################################################################################
 # Generate `config.h`
 ################################################################################
-configure_file(${CMAKE_SOURCE_DIR}/include/Klee/Config/config.h.cmin
-        ${CMAKE_BINARY_DIR}/include/Klee/Config/config.h)
+configure_file(${CMAKE_SOURCE_DIR}/include/klee/Config/config.h.cmin
+        ${CMAKE_BINARY_DIR}/include/klee/Config/config.h)
 
 set(CMAKE_CXX_STANDARD 11)
 find_package(LLVM REQUIRED CONFIG)
@@ -252,5 +252,5 @@ add_subdirectory(lib)
 add_subdirectory(runtime)
 
 set(SOURCE_FILES main.cpp)
-add_executable(KleeSE ${SOURCE_FILES})
-target_link_libraries(KleeSE KleeBasic KleeCore KleeSupport KleeModule)
+add_executable(klee ${SOURCE_FILES})
+target_link_libraries(klee kleeCore)

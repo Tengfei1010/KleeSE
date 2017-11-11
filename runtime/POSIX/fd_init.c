@@ -10,7 +10,7 @@
 #define _LARGEFILE64_SOURCE
 #define _FILE_OFFSET_BITS 64
 #include "fd.h"
-#include <Klee/klee.h>
+#include <klee/klee.h>
 
 #include <string.h>
 #include <stdio.h>

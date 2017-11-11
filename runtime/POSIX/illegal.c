@@ -14,7 +14,7 @@
 #include <setjmp.h>
 #include <sys/types.h>
 
-#include <Klee/klee.h>
+#include <klee/klee.h>
 
 void klee_warning(const char*);
 void klee_warning_once(const char*);

@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===*/
 
-#include "Klee/klee.h"
+#include "klee/klee.h"
 
 uintptr_t klee_choose(uintptr_t n) {
   uintptr_t x;
