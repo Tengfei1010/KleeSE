@@ -1,4 +1,4 @@
-add_library(kleeModule STATIC
+klee_add_component(kleeModule STATIC
         # List your source files here.
         Checks.cpp
         Constraints.cpp
@@ -26,9 +26,18 @@ set_target_properties(kleeModule PROPERTIES
 # Find the libraries that correspond to the LLVM components
 # that we wish to use
 
-llvm_map_components_to_libnames(llvm_libs support irreader bitwriter ipo linker core)
-target_link_libraries(kleeModule PUBLIC ${llvm_libs})
+set(LLVM_COMPONENTS
+        bitreader
+        bitwriter
+        codegen
+        ipo
+        linker
+        support
+        irreader
+        )
 
+klee_get_llvm_libs(LLVM_LIBS ${LLVM_COMPONENTS})
+target_link_libraries(kleeModule PUBLIC ${LLVM_LIBS})
 target_link_libraries(kleeModule PRIVATE
         kleeSupport
         # FIXME:

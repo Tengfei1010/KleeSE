@@ -18,7 +18,7 @@
 #include "klee/Internal/Support/ErrorHandling.h"
 #include "klee/Internal/Support/FileHandling.h"
 #include "klee/Internal/Support/ModuleUtil.h"
-//#include "klee/Internal/Support/PrintVersion.h"
+#include "klee/Internal/Support/PrintVersion.h"
 #include "klee/Internal/System/Time.h"
 #include "klee/Interpreter.h"
 #include "klee/Statistics.h"

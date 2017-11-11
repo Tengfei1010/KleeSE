@@ -1,9 +1,10 @@
-add_library(kleeSupport STATIC
+klee_add_component(kleeSupport STATIC
         # List your source files here.
         CompressionStream.cpp
         ErrorHandling.cpp
         FileHandling.cpp
         MemoryUsage.cpp
+        PrintVersion.cpp
         RNG.cpp
         TreeStream.cpp
         Time.cpp
@@ -19,14 +20,10 @@ set_target_properties(kleeSupport PROPERTIES
         COMPILE_FLAGS "-fno-rtti"
         )
 
+target_link_libraries(kleeSupport PRIVATE ${ZLIB_LIBRARIES})
+
 set(LLVM_COMPONENTS
         support
         )
-llvm_map_components_to_libnames(LLVM_LIBS ${LLVM_COMPONENTS})
+klee_get_llvm_libs(LLVM_LIBS ${LLVM_COMPONENTS})
 target_link_libraries(kleeSupport PUBLIC ${LLVM_LIBS})
-
-find_package(ZLIB)
-if (ZLIB_FOUND)
-    include_directories(${ZLIB_INCLUDE_DIRS})
-    target_link_libraries(kleeSupport PUBLIC ${ZLIB_LIBRARIES})
-endif()

@@ -1,4 +1,4 @@
-add_library(kleaverSolver STATIC
+klee_add_component(kleaverSolver STATIC
         # List your source files here.
         AssignmentValidatingSolver.cpp
         CachingSolver.cpp
@@ -32,16 +32,15 @@ set_target_properties(kleaverSolver PROPERTIES
 set(LLVM_COMPONENTS
         support
         )
-set(MINISAT_COMPONENTS minisat)
-set(STP_COMPONENTS stp)
-llvm_map_components_to_libnames(LLVM_LIBS ${LLVM_COMPONENTS})
-target_link_libraries(kleaverSolver PUBLIC ${LLVM_LIBS})
 
-target_link_libraries(kleaverSolver PUBLIC ${MINISAT_COMPONENTS})
-target_link_libraries(kleaverSolver PUBLIC ${STP_COMPONENTS})
+set(LLVM_COMPONENTS
+        support
+        )
+klee_get_llvm_libs(LLVM_LIBS ${LLVM_COMPONENTS})
+target_link_libraries(kleaverSolver PUBLIC ${LLVM_LIBS})
 
 target_link_libraries(kleaverSolver PRIVATE
         kleeBasic
         kleaverExpr
         kleeSupport
-        )
+        ${KLEE_SOLVER_LIBRARIES})

@@ -1,4 +1,4 @@
-add_library(kleeBasic STATIC
+klee_add_component(kleeBasic STATIC
         # List your source files here.
         KTest.cpp
         CmdLineOptions.cpp
@@ -17,9 +17,19 @@ set_target_properties(kleeBasic PROPERTIES
 
 # Find the libraries that correspond to the LLVM components
 # that we wish to use
-llvm_map_components_to_libnames(llvm_libs support core irreader)
-target_link_libraries(kleeBasic PUBLIC ${llvm_libs})
+
+set(LLVM_COMPONENTS
+        support
+        )
+
+klee_get_llvm_libs(LLVM_LIBS ${LLVM_COMPONENTS})
+target_link_libraries(kleeBasic PUBLIC ${LLVM_LIBS})
 
 target_link_libraries(kleeBasic PRIVATE
+        # FIXME: THIS IS STUPID.
+        # `ConstructSolverChain.cpp` should be in
+        # `kleaverSolver` not in in `kleeBasic`.
+        # We are creating a circular dependency because
+        # of this because `kleaverSolver` depends on `kleeBasic`.
         kleaverSolver
         )

@@ -1,4 +1,4 @@
-add_library(kleaverExpr STATIC
+klee_add_component(kleaverExpr STATIC
   ArrayCache.cpp
   Assigment.cpp
   Constraints.cpp
@@ -23,5 +23,8 @@ set_target_properties(kleaverExpr PROPERTIES
         COMPILE_FLAGS "-fno-rtti"
         )
 
-llvm_map_components_to_libnames(llvm_libs support)
-target_link_libraries(kleaverExpr PUBLIC ${llvm_libs})
+set(LLVM_COMPONENTS
+        support
+        )
+klee_get_llvm_libs(LLVM_LIBS ${LLVM_COMPONENTS})
+target_link_libraries(kleaverExpr PUBLIC ${LLVM_LIBS})

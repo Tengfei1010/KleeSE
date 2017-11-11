@@ -6,7 +6,7 @@
 # License. See LICENSE.TXT for details.
 #
 #===------------------------------------------------------------------------===#
-#add_subdirectory(Runtest)
+add_subdirectory(Runtest)
 
 if ("${KLEE_RUNTIME_BUILD_TYPE}" MATCHES "Release")
   set(RUNTIME_IS_RELEASE 1)

@@ -1,4 +1,4 @@
-add_library(kleeCore STATIC
+klee_add_component(kleeCore STATIC
         # List your source files here.
         AddressSpace.cpp
         CallPathManager.cpp
@@ -7,7 +7,6 @@ add_library(kleeCore STATIC
         ExecutionState.cpp
         Executor.cpp
         ExecutorTimers.cpp
-        Expr.cpp
         ExternalDispatcher.cpp
         ExecutorUtil.cpp
         ImpliedValue.cpp
@@ -28,14 +27,21 @@ target_compile_features(kleeCore PRIVATE cxx_range_for cxx_auto_type)
 
 # LLVM is (typically) built with no C++ RTTI. We need to match that;
 # otherwise, we'll get linker errors about missing RTTI data.
-set_target_properties(kleeCore PROPERTIES
-        COMPILE_FLAGS "-fno-rtti"
+set(LLVM_COMPONENTS
+        core
+        support
         )
 
-llvm_map_components_to_libnames(llvm_libs support core mcjit executionengine native)
-target_link_libraries(kleeCore PUBLIC ${llvm_libs})
+if ("${LLVM_PACKAGE_VERSION}" VERSION_EQUAL "3.6" OR
+        "${LLVM_PACKAGE_VERSION}" VERSION_GREATER "3.6")
+    list(APPEND LLVM_COMPONENTS mcjit executionengine native)
+else()
+    list(APPEND LLVM_COMPONENTS jit engine)
+endif()
 
 
+klee_get_llvm_libs(LLVM_LIBS ${LLVM_COMPONENTS})
+target_link_libraries(kleeCore PUBLIC ${LLVM_LIBS})
 target_link_libraries(kleeCore PRIVATE
         kleeBasic
         kleeModule
