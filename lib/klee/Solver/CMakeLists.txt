@@ -18,6 +18,8 @@ klee_add_component(kleaverSolver STATIC
         SolverImpl.cpp
         SolverStats.cpp
         ValidatingSolver.cpp
+        Z3Builder.cpp
+        Z3Solver.cpp
         )
 
 # Use C++11 to compile our pass (i.e., supply -std=c++11).

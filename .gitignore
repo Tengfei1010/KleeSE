@@ -6,6 +6,3 @@ cmake-build-debug/*
 
 # ignore
 .idea/*
-
-#ignore
-test/
