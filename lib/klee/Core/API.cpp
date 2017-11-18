@@ -607,26 +607,26 @@ static int initEnv(Module *mainModule) {
     Value *oldArgc = &*(mainFn->arg_begin());
     Value *oldArgv = &*(mainFn->arg_begin() + 1);
 
-    AllocaInst* argcPtr =
+    AllocaInst *argcPtr =
             new AllocaInst(oldArgc->getType(), 0, "argcPtr", firstInst);
-    AllocaInst* argvPtr =
+    AllocaInst *argvPtr =
             new AllocaInst(oldArgv->getType(), 0, "argvPtr", firstInst);
 
     /* Insert void klee_init_env(int* argc, char*** argv) */
-    std::vector<const Type*> params;
+    std::vector<const Type *> params;
     LLVMContext &ctx = mainModule->getContext();
     params.push_back(Type::getInt32Ty(ctx));
     params.push_back(Type::getInt32Ty(ctx));
-    Function* initEnvFn =
+    Function *initEnvFn =
             cast<Function>(mainModule->getOrInsertFunction("klee_init_env",
                                                            Type::getVoidTy(ctx),
                                                            argcPtr->getType(),
                                                            argvPtr->getType()));
     assert(initEnvFn);
-    std::vector<Value*> args;
+    std::vector<Value *> args;
     args.push_back(argcPtr);
     args.push_back(argvPtr);
-    Instruction* initEnvCall = CallInst::Create(initEnvFn, args,
+    Instruction *initEnvCall = CallInst::Create(initEnvFn, args,
                                                 "", firstInst);
     Value *argc = new LoadInst(argcPtr, "newArgc", firstInst);
     Value *argv = new LoadInst(argvPtr, "newArgv", firstInst);
@@ -643,7 +643,6 @@ static int initEnv(Module *mainModule) {
 // This is a terrible hack until we get some real modeling of the
 // system. All we do is check the undefined symbols and warn about
 // any "unrecognized" externals and about any obviously unsafe ones.
-
 // Symbols we explicitly support
 static const char *modelledExternals[] = {
         "_ZTVN10__cxxabiv117__class_type_infoE",
@@ -704,6 +703,7 @@ static const char *modelledExternals[] = {
         "__ubsan_handle_mul_overflow",
         "__ubsan_handle_divrem_overflow",
 };
+
 // Symbols we aren't going to warn about
 static const char *dontCareExternals[] = {
         // static information, pretty ok to return
@@ -732,6 +732,7 @@ static const char *dontCareExternals[] = {
         "__isnan",
         "__signbit",
 };
+
 // Extra symbols we aren't going to warn about with klee-libc
 static const char *dontCareklee[] = {
         "__ctype_b_loc",
@@ -743,6 +744,7 @@ static const char *dontCareklee[] = {
         "read",
         "close",
 };
+
 // Extra symbols we aren't going to warn about with uclibc
 static const char *dontCareUclibc[] = {
         "__dso_handle",
@@ -752,6 +754,7 @@ static const char *dontCareUclibc[] = {
         "printf",
         "vprintf"
 };
+
 // Symbols we consider unsafe
 static const char *unsafeExternals[] = {
         "fork", // oh lord
@@ -874,6 +877,25 @@ static void interrupt_handle() {
     interrupted = true;
 }
 
+static void interrupt_handle_watchdog() {
+    // just wait for the child to finish
+}
+
+// This is a temporary hack. If the running process has access to
+// externals then it can disable interrupts, which screws up the
+// normal "nice" watchdog termination process. We try to request the
+// interpreter to halt using this mechanism as a last resort to save
+// the state data before going ahead and killing it.
+static void halt_via_gdb(int pid) {
+    char buffer[256];
+    sprintf(buffer,
+            "gdb --batch --eval-command=\"p halt_execution()\" "
+                    "--eval-command=detach --pid=%d &> /dev/null",
+            pid);
+    //  fprintf(stderr, "KLEE: WATCHDOG: running: %s\n", buffer);
+    if (system(buffer) == -1)
+        perror("system");
+}
 
 // returns the end of the string put in buf
 static char *format_tdiff(char *buf, long seconds) {
@@ -1029,7 +1051,6 @@ static llvm::Module *linkWithUclibc(llvm::Module *mainModule, StringRef libDir) 
     return mainModule;
 }
 
-
 /*!
  * This is main function in klee
  * @param argc
@@ -1043,6 +1064,74 @@ int run_main(int argc, char **argv, char **envp) {
 
     parseArguments(argc, argv);
     sys::PrintStackTraceOnErrorSignal(argv[0]);
+    sys::SetInterruptFunction(interrupt_handle);
+
+    if (Watchdog) {
+        if (MaxTime == 0) {
+            klee_error("--watchdog used without --max-time");
+        }
+
+        int pid = fork();
+        if (pid < 0) {
+            klee_error("unable to fork watchdog");
+        } else if (pid) {
+            klee_message("KLEE: WATCHDOG: watching %d\n", pid);
+            fflush(stderr);
+            sys::SetInterruptFunction(interrupt_handle_watchdog);
+
+            double nextStep = util::getWallTime() + MaxTime * 1.1;
+            int level = 0;
+
+            // Simple stupid code...
+            while (1) {
+                sleep(1);
+
+                int status, res = waitpid(pid, &status, WNOHANG);
+
+                if (res < 0) {
+                    if (errno == ECHILD) { // No child, no need to watch but
+                        // return error since we didn't catch
+                        // the exit.
+                        klee_warning("KLEE: watchdog exiting (no child)\n");
+                        return 1;
+                    } else if (errno != EINTR) {
+                        perror("watchdog waitpid");
+                        exit(1);
+                    }
+                } else if (res == pid && WIFEXITED(status)) {
+                    return WEXITSTATUS(status);
+                } else {
+                    double time = util::getWallTime();
+
+                    if (time > nextStep) {
+                        ++level;
+
+                        if (level == 1) {
+                            klee_warning(
+                                    "KLEE: WATCHDOG: time expired, attempting halt via INT\n");
+                            kill(pid, SIGINT);
+                        } else if (level == 2) {
+                            klee_warning(
+                                    "KLEE: WATCHDOG: time expired, attempting halt via gdb\n");
+                            halt_via_gdb(pid);
+                        } else {
+                            klee_warning(
+                                    "KLEE: WATCHDOG: kill(9)ing child (I tried to be nice)\n");
+                            kill(pid, SIGKILL);
+                            return 1; // what more can we do
+                        }
+
+                        // Ideally this triggers a dump, which may take a while,
+                        // so try and give the process extra time to clean up.
+                        nextStep = util::getWallTime() + std::max(15., MaxTime * .1);
+                    }
+                }
+            }
+
+            return 0;
+        }
+    }
+
     sys::SetInterruptFunction(interrupt_handle);
 
     // Load the bytecode...
@@ -1113,11 +1202,31 @@ int run_main(int argc, char **argv, char **envp) {
     char **pArgv;
     char **pEnvp;
 
-    pEnvp = envp;
+    if (Environ != "") {
+        std::vector<std::string> items;
+        std::ifstream f(Environ.c_str());
+        if (!f.good())
+            klee_error("unable to open --environ file: %s", Environ.c_str());
+        while (!f.eof()) {
+            std::string line;
+            std::getline(f, line);
+            line = strip(line);
+            if (!line.empty())
+                items.push_back(line);
+        }
+        f.close();
+        pEnvp = new char *[items.size() + 1];
+        unsigned i = 0;
+        for (; i != items.size(); ++i)
+            pEnvp[i] = strdup(items[i].c_str());
+        pEnvp[i] = 0;
+    } else {
+        pEnvp = envp;
+    }
+
     pArgc = InputArgv.size() + 1;
     pArgv = new char *[pArgc];
     for (unsigned i = 0; i < InputArgv.size() + 1; i++) {
-
         std::string &arg = (i == 0 ? InputFile : InputArgv[i - 1]);
         unsigned size = arg.size() + 1;
         char *pArg = new char[size];

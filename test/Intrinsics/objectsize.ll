@@ -1,3 +1,4 @@
+; REQUIRES: lt-llvm-3.7
 ; RUN: %llvmas %s -o=%t.bc
 ; RUN: rm -rf %t.klee-out
 ; RUN: %klee -exit-on-error --output-dir=%t.klee-out -disable-opt %t.bc

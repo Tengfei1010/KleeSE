@@ -1,3 +1,4 @@
+; REQUIRES: geq-llvm-5.0
 ; RUN: %S/ConcreteTest.py --klee='%klee' --lli=%lli %s
 
 define void @"test_simple_arith"(i16 %i0, i16 %j0) {
