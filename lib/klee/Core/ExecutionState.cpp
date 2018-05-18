@@ -102,6 +102,7 @@ ExecutionState::ExecutionState(const ExecutionState& state):
 
     addressSpace(state.addressSpace),
     constraints(state.constraints),
+    constraintsInstIds(state.constraintsInstIds),
 
     queryCost(state.queryCost),
     weight(state.weight),

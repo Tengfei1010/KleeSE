@@ -23,153 +23,169 @@
 #include <vector>
 
 namespace klee {
-class Array;
-class CallPathNode;
-struct Cell;
-struct KFunction;
-struct KInstruction;
-class MemoryObject;
-class PTreeNode;
-struct InstructionInfo;
+    class Array;
 
-llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const MemoryMap &mm);
+    class CallPathNode;
 
-struct StackFrame {
-  KInstIterator caller;
-  KFunction *kf;
-  CallPathNode *callPathNode;
+    struct Cell;
+    struct KFunction;
+    struct KInstruction;
 
-  std::vector<const MemoryObject *> allocas;
-  Cell *locals;
+    class MemoryObject;
 
-  /// Minimum distance to an uncovered instruction once the function
-  /// returns. This is not a good place for this but is used to
-  /// quickly compute the context sensitive minimum distance to an
-  /// uncovered instruction. This value is updated by the StatsTracker
-  /// periodically.
-  unsigned minDistToUncoveredOnReturn;
+    class PTreeNode;
 
-  // For vararg functions: arguments not passed via parameter are
-  // stored (packed tightly) in a local (alloca) memory object. This
-  // is set up to match the way the front-end generates vaarg code (it
-  // does not pass vaarg through as expected). VACopy is lowered inside
-  // of intrinsic lowering.
-  MemoryObject *varargs;
+    struct InstructionInfo;
 
-  StackFrame(KInstIterator caller, KFunction *kf);
-  StackFrame(const StackFrame &s);
-  ~StackFrame();
-};
+    llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const MemoryMap &mm);
+
+    struct StackFrame {
+        KInstIterator caller;
+        KFunction *kf;
+        CallPathNode *callPathNode;
+
+        std::vector<const MemoryObject *> allocas;
+        Cell *locals;
+
+        /// Minimum distance to an uncovered instruction once the function
+        /// returns. This is not a good place for this but is used to
+        /// quickly compute the context sensitive minimum distance to an
+        /// uncovered instruction. This value is updated by the StatsTracker
+        /// periodically.
+        unsigned minDistToUncoveredOnReturn;
+
+        // For vararg functions: arguments not passed via parameter are
+        // stored (packed tightly) in a local (alloca) memory object. This
+        // is set up to match the way the front-end generates vaarg code (it
+        // does not pass vaarg through as expected). VACopy is lowered inside
+        // of intrinsic lowering.
+        MemoryObject *varargs;
+
+        StackFrame(KInstIterator caller, KFunction *kf);
+
+        StackFrame(const StackFrame &s);
+
+        ~StackFrame();
+    };
 
 /// @brief ExecutionState representing a path under exploration
-class ExecutionState {
-public:
-  typedef std::vector<StackFrame> stack_ty;
+    class ExecutionState {
+    public:
+        typedef std::vector <StackFrame> stack_ty;
 
-private:
-  // unsupported, use copy constructor
-  ExecutionState &operator=(const ExecutionState &);
+    private:
+        // unsupported, use copy constructor
+        ExecutionState &operator=(const ExecutionState &);
 
-  std::map<std::string, std::string> fnAliases;
+        std::map <std::string, std::string> fnAliases;
 
-public:
-  // Execution - Control Flow specific
+    public:
+        // Execution - Control Flow specific
 
-  /// @brief Pointer to instruction to be executed after the current
-  /// instruction
-  KInstIterator pc;
+        /// @brief Pointer to instruction to be executed after the current
+        /// instruction
+        KInstIterator pc;
 
-  /// @brief Pointer to instruction which is currently executed
-  KInstIterator prevPC;
+        /// @brief Pointer to instruction which is currently executed
+        KInstIterator prevPC;
 
-  /// @brief Stack representing the current instruction stream
-  stack_ty stack;
+        /// @brief Stack representing the current instruction stream
+        stack_ty stack;
 
-  /// @brief Remember from which Basic Block control flow arrived
-  /// (i.e. to select the right phi values)
-  unsigned incomingBBIndex;
+        /// @brief Remember from which Basic Block control flow arrived
+        /// (i.e. to select the right phi values)
+        unsigned incomingBBIndex;
 
-  // Overall state of the state - Data specific
+        // Overall state of the state - Data specific
 
-  /// @brief Address space used by this state (e.g. Global and Heap)
-  AddressSpace addressSpace;
+        /// @brief Address space used by this state (e.g. Global and Heap)
+        AddressSpace addressSpace;
 
-  /// @brief Constraints collected so far
-  ConstraintManager constraints;
+        /// @brief Constraints collected so far
+        ConstraintManager constraints;
 
-  /// Statistics and information
+        /// Statistics and information
 
-  /// @brief Costs for all queries issued for this state, in seconds
-  mutable double queryCost;
+        /// @brief Costs for all queries issued for this state, in seconds
+        mutable double queryCost;
 
-  /// @brief Weight assigned for importance of this state.  Can be
-  /// used for searchers to decide what paths to explore
-  double weight;
+        /// vector store constraints and instruction's bb id
+        std::vector<int> constraintsInstIds;
 
-  /// @brief Exploration depth, i.e., number of times KLEE branched for this state
-  unsigned depth;
+        /// @brief Weight assigned for importance of this state.  Can be
+        /// used for searchers to decide what paths to explore
+        double weight;
 
-  /// @brief History of complete path: represents branches taken to
-  /// reach/create this state (both concrete and symbolic)
-  TreeOStream pathOS;
+        /// @brief Exploration depth, i.e., number of times KLEE branched for this state
+        unsigned depth;
 
-  /// @brief History of symbolic path: represents symbolic branches
-  /// taken to reach/create this state
-  TreeOStream symPathOS;
+        /// @brief History of complete path: represents branches taken to
+        /// reach/create this state (both concrete and symbolic)
+        TreeOStream pathOS;
 
-  /// @brief Counts how many instructions were executed since the last new
-  /// instruction was covered.
-  unsigned instsSinceCovNew;
+        /// @brief History of symbolic path: represents symbolic branches
+        /// taken to reach/create this state
+        TreeOStream symPathOS;
 
-  /// @brief Whether a new instruction was covered in this state
-  bool coveredNew;
+        /// @brief Counts how many instructions were executed since the last new
+        /// instruction was covered.
+        unsigned instsSinceCovNew;
 
-  /// @brief Disables forking for this state. Set by user code
-  bool forkDisabled;
+        /// @brief Whether a new instruction was covered in this state
+        bool coveredNew;
 
-  /// @brief Set containing which lines in which files are covered by this state
-  std::map<const std::string *, std::set<unsigned> > coveredLines;
+        /// @brief Disables forking for this state. Set by user code
+        bool forkDisabled;
 
-  /// @brief Pointer to the process tree of the current state
-  PTreeNode *ptreeNode;
+        /// @brief Set containing which lines in which files are covered by this state
+        std::map<const std::string *, std::set < unsigned> >
+        coveredLines;
 
-  /// @brief Ordered list of symbolics: used to generate test cases.
-  //
-  // FIXME: Move to a shared list structure (not critical).
-  std::vector<std::pair<const MemoryObject *, const Array *> > symbolics;
+        /// @brief Pointer to the process tree of the current state
+        PTreeNode *ptreeNode;
 
-  /// @brief Set of used array names for this state.  Used to avoid collisions.
-  std::set<std::string> arrayNames;
+        /// @brief Ordered list of symbolics: used to generate test cases.
+        //
+        // FIXME: Move to a shared list structure (not critical).
+        std::vector <std::pair<const MemoryObject *, const Array *>> symbolics;
 
-  std::string getFnAlias(std::string fn);
-  void addFnAlias(std::string old_fn, std::string new_fn);
-  void removeFnAlias(std::string fn);
+        /// @brief Set of used array names for this state.  Used to avoid collisions.
+        std::set <std::string> arrayNames;
 
-private:
-  ExecutionState() : ptreeNode(0) {}
+        std::string getFnAlias(std::string fn);
 
-public:
-  ExecutionState(KFunction *kf);
+        void addFnAlias(std::string old_fn, std::string new_fn);
 
-  // XXX total hack, just used to make a state so solver can
-  // use on structure
-  ExecutionState(const std::vector<ref<Expr> > &assumptions);
+        void removeFnAlias(std::string fn);
 
-  ExecutionState(const ExecutionState &state);
+    private:
+        ExecutionState() : ptreeNode(0) {}
 
-  ~ExecutionState();
+    public:
+        ExecutionState(KFunction *kf);
 
-  ExecutionState *branch();
+        // XXX total hack, just used to make a state so solver can
+        // use on structure
+        ExecutionState(const std::vector <ref<Expr>> &assumptions);
 
-  void pushFrame(KInstIterator caller, KFunction *kf);
-  void popFrame();
+        ExecutionState(const ExecutionState &state);
 
-  void addSymbolic(const MemoryObject *mo, const Array *array);
-  void addConstraint(ref<Expr> e) { constraints.addConstraint(e); }
+        ~ExecutionState();
 
-  bool merge(const ExecutionState &b);
-  void dumpStack(llvm::raw_ostream &out) const;
-};
+        ExecutionState *branch();
+
+        void pushFrame(KInstIterator caller, KFunction *kf);
+
+        void popFrame();
+
+        void addSymbolic(const MemoryObject *mo, const Array *array);
+
+        void addConstraint(ref <Expr> e) { constraints.addConstraint(e); }
+
+        bool merge(const ExecutionState &b);
+
+        void dumpStack(llvm::raw_ostream &out) const;
+    };
 }
 
 #endif

@@ -127,21 +127,21 @@ namespace {
             llvm::cl::desc("Log instructions during execution."),
             llvm::cl::values(
                     clEnumValN(STDERR_ALL, "all:stderr", "Log all instructions to stderr "
-                            "in format [src, inst_id, "
-                            "llvm_inst]"),
+                                                         "in format [src, inst_id, "
+                                                         "llvm_inst]"),
                     clEnumValN(STDERR_SRC, "src:stderr",
                                "Log all instructions to stderr in format [src, inst_id]"),
                     clEnumValN(STDERR_COMPACT, "compact:stderr",
                                "Log all instructions to stderr in format [inst_id]"),
                     clEnumValN(FILE_ALL, "all:file", "Log all instructions to file "
-                            "instructions.txt in format [src, "
-                            "inst_id, llvm_inst]"),
+                                                     "instructions.txt in format [src, "
+                                                     "inst_id, llvm_inst]"),
                     clEnumValN(FILE_SRC, "src:file", "Log all instructions to file "
-                            "instructions.txt in format [src, "
-                            "inst_id]"),
+                                                     "instructions.txt in format [src, "
+                                                     "inst_id]"),
                     clEnumValN(FILE_COMPACT, "compact:file",
                                "Log all instructions to file instructions.txt in format "
-                                       "[inst_id]")),
+                               "[inst_id]")),
             llvm::cl::CommaSeparated);
 #ifdef HAVE_ZLIB_H
     cl::opt<bool> DebugCompressInstructions(
@@ -177,7 +177,7 @@ namespace {
             AllExternalWarnings("all-external-warnings",
                                 cl::init(false),
                                 cl::desc("Issue an warning everytime an external call is made,"
-                                                 "as opposed to once per function (default=off)"));
+                                         "as opposed to once per function (default=off)"));
 
     cl::opt<bool>
             OnlyOutputStatesCoveringNew("only-output-states-covering-new",
@@ -188,7 +188,7 @@ namespace {
             EmitAllErrors("emit-all-errors",
                           cl::init(false),
                           cl::desc("Generate tests cases for all errors "
-                                           "(default=off, i.e. one per (error,instruction) pair)"));
+                                   "(default=off, i.e. one per (error,instruction) pair)"));
 
     cl::opt<bool>
             NoExternals("no-externals",
@@ -304,6 +304,9 @@ namespace {
             MaxMemoryInhibit("max-memory-inhibit",
                              cl::desc("Inhibit forking at memory cap (vs. random terminate) (default=on)"),
                              cl::init(true));
+
+    cl::opt<bool>
+            PrintWithInstId("print-inst-id", cl::desc("print kquery constraints with instruction id"));
 }
 
 
@@ -369,17 +372,17 @@ Executor::Executor(LLVMContext &ctx, const InterpreterOptions &opts,
 #endif
 
 #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 6)
-            std::error_code ec;
+        std::error_code ec;
             debugInstFile = new llvm::raw_fd_ostream(debug_file_name.c_str(), ec,
                                                      llvm::sys::fs::OpenFlags::F_Text);
             if (ec)
                 ErrorInfo = ec.message();
 #elif LLVM_VERSION_CODE >= LLVM_VERSION(3, 5)
-            debugInstFile = new llvm::raw_fd_ostream(debug_file_name.c_str(), ErrorInfo,
+        debugInstFile = new llvm::raw_fd_ostream(debug_file_name.c_str(), ErrorInfo,
                                              llvm::sys::fs::OpenFlags::F_Text);
 #else
-    debugInstFile =
-        new llvm::raw_fd_ostream(debug_file_name.c_str(), ErrorInfo);
+        debugInstFile =
+                new llvm::raw_fd_ostream(debug_file_name.c_str(), ErrorInfo);
 #endif
 #ifdef HAVE_ZLIB_H
         } else {
@@ -489,7 +492,7 @@ MemoryObject *Executor::addExternalObject(ExecutionState &state,
                                           void *addr, unsigned size,
                                           bool isReadOnly) {
     MemoryObject *mo = memory->allocateFixed((uint64_t) (unsigned long) addr,
-                                             size, 0);
+            size, 0);
     ObjectState *os = bindObjectInState(state, mo, false);
     for (unsigned i = 0; i < size; i++)
         os->write8(i, ((uint8_t *) addr)[i]);
@@ -543,7 +546,7 @@ void Executor::initializeGlobals(ExecutionState &state) {
 
     // Disabled, we don't want to promote use of live externals.
 #ifdef HAVE_CTYPE_EXTERNALS
-#ifndef WINDOWS
+    #ifndef WINDOWS
 #ifndef DARWIN
     /* from /usr/include/ctype.h:
          These point into arrays of 384, so they can be indexed by any `unsigned
@@ -700,7 +703,7 @@ void Executor::branch(ExecutionState &state,
             result.push_back(ns);
             es->ptreeNode->data = 0;
             std::pair<PTree::Node *, PTree::Node *> res =
-                    processTree->split(es->ptreeNode, ns, es);
+                                             processTree->split(es->ptreeNode, ns, es);
             ns->ptreeNode = res.first;
             es->ptreeNode = res.second;
         }
@@ -711,7 +714,7 @@ void Executor::branch(ExecutionState &state,
     // simple).
 
     std::map<ExecutionState *, std::vector<SeedInfo> >::iterator it =
-            seedMap.find(&state);
+                                                                         seedMap.find(&state);
     if (it != seedMap.end()) {
         std::vector<SeedInfo> seeds = it->second;
         seedMap.erase(it);
@@ -762,7 +765,7 @@ Executor::StatePair
 Executor::fork(ExecutionState &current, ref<Expr> condition, bool isInternal) {
     Solver::Validity res;
     std::map<ExecutionState *, std::vector<SeedInfo> >::iterator it =
-            seedMap.find(&current);
+                                                                         seedMap.find(&current);
     bool isSeeding = it != seedMap.end();
 
     if (!isSeeding && !isa<ConstantExpr>(condition) &&
@@ -952,7 +955,7 @@ Executor::fork(ExecutionState &current, ref<Expr> condition, bool isInternal) {
 
         current.ptreeNode->data = 0;
         std::pair<PTree::Node *, PTree::Node *> res =
-                processTree->split(current.ptreeNode, falseState, trueState);
+                                         processTree->split(current.ptreeNode, falseState, trueState);
         falseState->ptreeNode = res.first;
         trueState->ptreeNode = res.second;
 
@@ -996,7 +999,7 @@ void Executor::addConstraint(ExecutionState &state, ref<Expr> condition) {
 
     // Check to see if this constraint violates seeds.
     std::map<ExecutionState *, std::vector<SeedInfo> >::iterator it =
-            seedMap.find(&state);
+                                                                         seedMap.find(&state);
     if (it != seedMap.end()) {
         bool warn = false;
         for (std::vector<SeedInfo>::iterator siit = it->second.begin(),
@@ -1106,7 +1109,7 @@ void Executor::executeGetValue(ExecutionState &state,
                                KInstruction *target) {
     e = state.constraints.simplifyExpr(e);
     std::map<ExecutionState *, std::vector<SeedInfo> >::iterator it =
-            seedMap.find(&state);
+                                                                         seedMap.find(&state);
     if (it == seedMap.end() || isa<ConstantExpr>(e)) {
         ref<ConstantExpr> value;
         bool success = solver->getValue(state, e, value);
@@ -1419,7 +1422,7 @@ Function *Executor::getTargetFunction(Value *calledVal, ExecutionState &state) {
                 return 0;
 #else
             if (!Visited.insert(gv))
-        return 0;
+                return 0;
 #endif
             std::string alias = state.getFnAlias(gv->getName());
             if (alias != "") {
@@ -1464,11 +1467,11 @@ static inline const llvm::fltSemantics *fpWidthToSemantics(unsigned width) {
             return &llvm::APFloat::x87DoubleExtended();
 #else
         case Expr::Int32:
-    return &llvm::APFloat::IEEEsingle;
-  case Expr::Int64:
-    return &llvm::APFloat::IEEEdouble;
-  case Expr::Fl80:
-    return &llvm::APFloat::x87DoubleExtended;
+            return &llvm::APFloat::IEEEsingle;
+        case Expr::Int64:
+            return &llvm::APFloat::IEEEdouble;
+        case Expr::Fl80:
+            return &llvm::APFloat::x87DoubleExtended;
 #endif
         default:
             return 0;
@@ -2035,8 +2038,8 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
             ref<Expr> base = eval(ki, 0, state).value;
 
             for (std::vector<std::pair<unsigned, uint64_t> >::iterator
-                         it = kgepi->indices.begin(), ie = kgepi->indices.end();
-                 it != ie; ++it) {
+                    it = kgepi->indices.begin(), ie = kgepi->indices.end();
+                    it != ie; ++it) {
                 uint64_t elementSize = it->second;
                 ref<Expr> index = eval(ki, it->first, state).value;
                 base = AddExpr::create(base,
@@ -2173,7 +2176,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
                     APFloat(*fpWidthToSemantics(right->getWidth()), right->getAPValue()));
 #else
             Res.mod(APFloat(*fpWidthToSemantics(right->getWidth()),right->getAPValue()),
-            APFloat::rmNearestTiesToEven);
+                    APFloat::rmNearestTiesToEven);
 #endif
             bindLocal(ki, state, ConstantExpr::alloc(Res.bitcastToAPInt()));
             break;
@@ -2506,7 +2509,7 @@ void Executor::updateStates(ExecutionState *current) {
         assert(it2 != states.end());
         states.erase(it2);
         std::map<ExecutionState *, std::vector<SeedInfo> >::iterator it3 =
-                seedMap.find(es);
+                                                                             seedMap.find(es);
         if (it3 != seedMap.end())
             seedMap.erase(it3);
         processTree->remove(es->ptreeNode);
@@ -2542,7 +2545,7 @@ void Executor::computeOffsets(KGEPInstruction *kgepi, TypeIt ib, TypeIt ie) {
                 kgepi->indices.push_back(std::make_pair(index, elementSize));
             }
 #if LLVM_VERSION_CODE >= LLVM_VERSION(4, 0)
-        } else if (const PointerType *ptr = dyn_cast<PointerType>(*ii)) {
+            } else if (const PointerType *ptr = dyn_cast<PointerType>(*ii)) {
             uint64_t elementSize =
                     kmodule->targetData->getTypeStoreSize(ptr->getElementType());
             Value *operand = ii.getOperand();
@@ -2668,7 +2671,7 @@ void Executor::run(ExecutionState &initialState) {
             }
 
             std::map<ExecutionState *, std::vector<SeedInfo> >::iterator it =
-                    seedMap.upper_bound(lastState);
+                                                                                 seedMap.upper_bound(lastState);
             if (it == seedMap.end())
                 it = seedMap.begin();
             lastState = it->first;
@@ -2684,8 +2687,8 @@ void Executor::run(ExecutionState &initialState) {
             if ((stats::instructions % 1000) == 0) {
                 int numSeeds = 0, numStates = 0;
                 for (std::map<ExecutionState *, std::vector<SeedInfo> >::iterator
-                             it = seedMap.begin(), ie = seedMap.end();
-                     it != ie; ++it) {
+                        it = seedMap.begin(), ie = seedMap.end();
+                        it != ie; ++it) {
                     numSeeds += it->second.size();
                     numStates++;
                 }
@@ -2811,7 +2814,7 @@ void Executor::terminateState(ExecutionState &state) {
     } else {
         // never reached searcher, just delete immediately
         std::map<ExecutionState *, std::vector<SeedInfo> >::iterator it3 =
-                seedMap.find(&state);
+                                                                             seedMap.find(&state);
         if (it3 != seedMap.end())
             seedMap.erase(it3);
         addedStates.erase(it);
@@ -3392,7 +3395,7 @@ void Executor::executeMakeSymbolic(ExecutionState &state,
         state.addSymbolic(mo, array);
 
         std::map<ExecutionState *, std::vector<SeedInfo> >::iterator it =
-                seedMap.find(&state);
+                                                                             seedMap.find(&state);
         if (it != seedMap.end()) { // In seed mode we need to add this as a
             // binding.
             for (std::vector<SeedInfo>::iterator siit = it->second.begin(),
@@ -3585,7 +3588,11 @@ void Executor::getConstraintLog(const ExecutionState &state, std::string &res,
         case KQUERY: {
             std::string Str;
             llvm::raw_string_ostream info(Str);
-            ExprPPrinter::printConstraints(info, state.constraints);
+            if (PrintWithInstId) {
+                ExprPPrinter::printConstraints(info, state.constraints, state.constraintsInstIds);
+            } else {
+                ExprPPrinter::printConstraints(info, state.constraints);
+            }
             res = info.str();
         }
             break;
@@ -3609,62 +3616,62 @@ void Executor::getConstraintLog(const ExecutionState &state, std::string &res,
 
 bool Executor::getSymbolicSolution(const ExecutionState &state,
                                    std::vector<
-                                           std::pair<std::string,
-                                                   std::vector<unsigned char> > >
-                                   &res) {
-    solver->setTimeout(coreSolverTimeout);
+                                   std::pair<std::string,
+                                           std::vector<unsigned char> > >
+&res) {
+solver->setTimeout(coreSolverTimeout);
 
-    ExecutionState tmp(state);
+ExecutionState tmp(state);
 
-    // Go through each byte in every test case and attempt to restrict
-    // it to the constraints contained in cexPreferences.  (Note:
-    // usually this means trying to make it an ASCII character (0-127)
-    // and therefore human readable. It is also possible to customize
-    // the preferred constraints.  See test/Features/PreferCex.c for
-    // an example) While this process can be very expensive, it can
-    // also make understanding individual test cases much easier.
-    for (unsigned i = 0; i != state.symbolics.size(); ++i) {
-        const MemoryObject *mo = state.symbolics[i].first;
-        std::vector<ref<Expr> >::const_iterator pi =
-                mo->cexPreferences.begin(), pie = mo->cexPreferences.end();
-        for (; pi != pie; ++pi) {
-            bool mustBeTrue;
-            // Attempt to bound byte to constraints held in cexPreferences
-            bool success = solver->mustBeTrue(tmp, Expr::createIsZero(*pi),
-                                              mustBeTrue);
-            // If it isn't possible to constrain this particular byte in the desired
-            // way (normally this would mean that the byte can't be constrained to
-            // be between 0 and 127 without making the entire constraint list UNSAT)
-            // then just continue on to the next byte.
-            if (!success) break;
-            // If the particular constraint operated on in this iteration through
-            // the loop isn't implied then add it to the list of constraints.
-            if (!mustBeTrue) tmp.addConstraint(*pi);
-        }
-        if (pi != pie) break;
-    }
+// Go through each byte in every test case and attempt to restrict
+// it to the constraints contained in cexPreferences.  (Note:
+// usually this means trying to make it an ASCII character (0-127)
+// and therefore human readable. It is also possible to customize
+// the preferred constraints.  See test/Features/PreferCex.c for
+// an example) While this process can be very expensive, it can
+// also make understanding individual test cases much easier.
+for (unsigned i = 0; i != state.symbolics.size(); ++i) {
+const MemoryObject *mo = state.symbolics[i].first;
+std::vector<ref<Expr> >::const_iterator pi =
+        mo->cexPreferences.begin(), pie = mo->cexPreferences.end();
+for (; pi != pie; ++pi) {
+bool mustBeTrue;
+// Attempt to bound byte to constraints held in cexPreferences
+bool success = solver->mustBeTrue(tmp, Expr::createIsZero(*pi),
+                                  mustBeTrue);
+// If it isn't possible to constrain this particular byte in the desired
+// way (normally this would mean that the byte can't be constrained to
+// be between 0 and 127 without making the entire constraint list UNSAT)
+// then just continue on to the next byte.
+if (!success) break;
+// If the particular constraint operated on in this iteration through
+// the loop isn't implied then add it to the list of constraints.
+if (!mustBeTrue) tmp.addConstraint(*pi);
+}
+if (pi != pie) break;
+}
 
-    std::vector<std::vector<unsigned char> > values;
-    std::vector<const Array *> objects;
-    for (unsigned i = 0; i != state.symbolics.size(); ++i)
-        objects.push_back(state.symbolics[i].second);
-    bool success = solver->getInitialValues(tmp, objects, values);
-    solver->setTimeout(0);
-    if (!success) {
-        klee_warning("unable to compute initial values (invalid constraints?)!");
-        ExprPPrinter::printQuery(llvm::errs(), state.constraints,
-                                 ConstantExpr::alloc(0, Expr::Bool));
-        return false;
-    }
+std::vector<std::vector<unsigned char> > values;
+std::vector<const Array *> objects;
+for (unsigned i = 0; i != state.symbolics.size(); ++i)
+objects.push_back(state.symbolics[i].second);
+bool success = solver->getInitialValues(tmp, objects, values);
+solver->setTimeout(0);
+if (!success) {
+klee_warning("unable to compute initial values (invalid constraints?)!");
+ExprPPrinter::printQuery(llvm::errs(), state.constraints,
+ConstantExpr::alloc(0, Expr::Bool));
+return false;
+}
 
-    for (unsigned i = 0; i != state.symbolics.size(); ++i)
-        res.push_back(std::make_pair(state.symbolics[i].first->name, values[i]));
-    return true;
+for (unsigned i = 0; i != state.symbolics.size(); ++i)
+res.push_back(std::make_pair(state.symbolics[i].first->name, values[i]));
+return true;
 }
 
 void Executor::getCoveredLines(const ExecutionState &state,
                                std::map<const std::string *, std::set<unsigned> > &res) {
-    res = state.coveredLines;
+res = state.coveredLines;
 }
 
 void Executor::doImpliedValueConcretization(ExecutionState &state,
@@ -3739,7 +3746,7 @@ size_t Executor::getAllocationAlignment(const llvm::Value *allocSite) const {
 
         klee_warning_once(fn != NULL ? fn : allocSite,
                           "Alignment of memory from call \"%s\" is not "
-                                  "modelled. Using alignment of %zu.",
+                          "modelled. Using alignment of %zu.",
                           allocationSiteName.c_str(), forcedAlignment);
         alignment = forcedAlignment;
     } else {
@@ -3753,7 +3760,7 @@ size_t Executor::getAllocationAlignment(const llvm::Value *allocSite) const {
             alignment = kmodule->targetData->getPrefTypeAlignment(type);
         } else {
             klee_warning_once(allocSite, "Cannot determine memory alignment for "
-                                      "\"%s\". Using alignment of %zu.",
+                                         "\"%s\". Using alignment of %zu.",
                               allocationSiteName.c_str(), forcedAlignment);
             alignment = forcedAlignment;
         }
@@ -3762,7 +3769,7 @@ size_t Executor::getAllocationAlignment(const llvm::Value *allocSite) const {
     // Currently we require alignment be a power of 2
     if (!bits64::isPowerOfTwo(alignment)) {
         klee_warning_once(allocSite, "Alignment of %zu requested for %s but this "
-                                  "not supported. Using alignment of %zu",
+                                     "not supported. Using alignment of %zu",
                           alignment, allocSite->getName().str().c_str(),
                           forcedAlignment);
         alignment = forcedAlignment;
