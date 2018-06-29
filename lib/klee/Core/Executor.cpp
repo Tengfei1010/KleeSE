@@ -306,7 +306,8 @@ namespace {
                              cl::init(true));
 
     cl::opt<bool>
-            PrintWithInstId("print-inst-id", cl::desc("print kquery constraints with instruction id"));
+            PrintWithInstId("print-inst-id", cl::desc("print kquery constraints with instruction id"),
+                            cl::init(true));
 }
 
 
@@ -1559,6 +1560,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
                 // up with convenient instruction specific data.
                 if (statsTracker && state.stack.back().kf->trackCoverage)
                     statsTracker->markBranchVisited(branches.first, branches.second);
+                errs()
 
                 if (branches.first)
                     transferToBasicBlock(bi->getSuccessor(0), bi->getParent(), *branches.first);
@@ -3589,7 +3591,7 @@ void Executor::getConstraintLog(const ExecutionState &state, std::string &res,
             std::string Str;
             llvm::raw_string_ostream info(Str);
             if (PrintWithInstId) {
-                ExprPPrinter::printConstraints(info, state.constraints, state.constraintsInstIds);
+                ExprPPrinter::printConstraints(info, state.constraints, state.constraintsInstSrc);
             } else {
                 ExprPPrinter::printConstraints(info, state.constraints);
             }

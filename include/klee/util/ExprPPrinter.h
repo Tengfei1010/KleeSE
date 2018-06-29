@@ -69,7 +69,7 @@ namespace klee {
 
         static void printConstraints(llvm::raw_ostream &os,
                                      const ConstraintManager &constraints,
-                                     const std::vector<int> constraintsInstIds);
+                                     const std::vector<std::string> constraintsInstSrc);
 
         static void printQuery(llvm::raw_ostream &os,
                                const ConstraintManager &constraints,
@@ -83,7 +83,7 @@ namespace klee {
         static void printQuery(llvm::raw_ostream &os,
                                const ConstraintManager &constraints,
                                const ref <Expr> &q,
-                               const std::vector<int> constraintsInstIds,
+                               const std::vector<std::string> constraintsInstSrc,
                                const ref <Expr> *evalExprsBegin = 0,
                                const ref <Expr> *evalExprsEnd = 0,
                                const Array *const *evalArraysBegin = 0,

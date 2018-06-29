@@ -99,7 +99,8 @@ namespace {
 
     cl::opt<bool>
             WriteKQueries("write-kqueries",
-                          cl::desc("Write .kquery files for each test case"));
+                          cl::desc("Write .kquery files for each test case"),
+                          cl::init(true));
 
     cl::opt<bool>
             WriteSMT2s("write-smt2s",

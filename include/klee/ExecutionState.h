@@ -110,7 +110,7 @@ namespace klee {
         mutable double queryCost;
 
         /// vector store constraints and instruction's bb id
-        std::vector<int> constraintsInstIds;
+        std::vector<std::string> constraintsInstSrc;
 
         /// @brief Weight assigned for importance of this state.  Can be
         /// used for searchers to decide what paths to explore

@@ -1,0 +1,6 @@
+cmake .. -DENABLE_SOLVER_STP=ON  -DENABLE_POSIX_RUNTIME=ON -DENABLE_KLEE_UCLIBC=ON \
+ -DKLEE_UCLIBC_PATH=/home/tzt77/Develop/klee_dependencies/klee-uclibc \
+  -DGTEST_SRC_DIR=/home/tzt77/Develop/klee_dependencies/googletest-release-1.7.0 \
+  -DENABLE_SOLVER_Z3=ON \
+  -DENABLE_SYSTEM_TESTS=ON \
+  -DENABLE_UNIT_TESTS=ON

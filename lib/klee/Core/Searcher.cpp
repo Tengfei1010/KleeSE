@@ -25,6 +25,7 @@
 #include "klee/Internal/System/Time.h"
 #include "klee/Internal/Support/ErrorHandling.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
@@ -75,17 +76,31 @@ int GetInstructionID(Instruction *II) {
     return -1;
 }
 
+std::string GetInstructionLineNum(Instruction *II) {
+    const DILocation *DIL = II->getDebugLoc();
+
+    if (!DIL)
+        return "";
+    char pPath[400];
+
+    std::string sFileName = DIL->getDirectory().str() + "/" + DIL->getFilename().str();
+    realpath(sFileName.c_str(), pPath);
+    sFileName = std::string(sFileName);
+    unsigned int numLine = DIL->getLine();
+    return sFileName + ": " + std::to_string(numLine);
+}
+
 void updateConstraintsIds(ExecutionState *current, const std::vector<ExecutionState *> &addedStates) {
     if (current) {
         KInstruction *ki = current->prevPC;
-        int bb_id = GetInstructionID(ki->inst);
-        if (current->constraints.size() > current->constraintsInstIds.size()) {
-            current->constraintsInstIds.push_back(bb_id);
+        std::string code_src_line = GetInstructionLineNum(ki->inst);
+        if (current->constraints.size() > current->constraintsInstSrc.size()) {
+            current->constraintsInstSrc.push_back(code_src_line);
         }
 
         for (auto state: addedStates) {
-            if (state->constraints.size() > state->constraintsInstIds.size()) {
-                state->constraintsInstIds.push_back(bb_id);
+            if (state->constraints.size() > state->constraintsInstSrc.size()) {
+                state->constraintsInstSrc.push_back(code_src_line);
             }
         }
     }

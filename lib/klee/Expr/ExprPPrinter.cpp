@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "klee/Internal/Support/ErrorHandling.h"
 #include "klee/util/PrintContext.h"
 #include "klee/util/ExprPPrinter.h"
 
@@ -414,7 +415,7 @@ public:
         }
     }
 
-    void print(const ref<Expr> &e, PrintContext &PC, int constraintInstId, bool printConstWidth = false) {
+    void print(const ref<Expr> &e, PrintContext &PC, std::string constraintInstId, bool printConstWidth = false) {
         if (ConstantExpr *CE = dyn_cast<ConstantExpr>(e))
             printConst(CE, PC, printConstWidth);
         else {
@@ -515,7 +516,7 @@ void ExprPPrinter::printConstraints(llvm::raw_ostream &os,
 
 void ExprPPrinter::printConstraints(llvm::raw_ostream &os,
                                     const ConstraintManager &constraints,
-                                    const std::vector<int> constraintsInstIds) {
+                                    const std::vector<std::string> constraintsInstIds) {
     printQuery(os, constraints, ConstantExpr::alloc(false, Expr::Bool), constraintsInstIds);
 }
 
@@ -626,7 +627,7 @@ void ExprPPrinter::printQuery(llvm::raw_ostream &os,
 void ExprPPrinter::printQuery(llvm::raw_ostream &os,
                               const ConstraintManager &constraints,
                               const ref<Expr> &q,
-                              const std::vector<int> constraintsInstIds,
+                              const std::vector<std::string> constraintsInstIds,
                               const ref<Expr> *evalExprsBegin,
                               const ref<Expr> *evalExprsEnd,
                               const Array *const *evalArraysBegin,
@@ -680,7 +681,13 @@ void ExprPPrinter::printQuery(llvm::raw_ostream &os,
     for (ConstraintManager::const_iterator it = constraints.begin(),
                  ie = constraints.end(); it != ie;) {
         // TODO: print the constraints each line!!!
-        p.print(*it, PC, constraintsInstIds[i]);
+        if (constraintsInstIds.size() <= i) {
+            p.print(*it, PC);
+        } else {
+//            klee_message("%d constraints size, %d current print number.",
+//                         constraintsInstIds.size(), i);
+            p.print(*it, PC, constraintsInstIds[i]);
+        }
         ++it;
         ++i;
         if (it != ie)
