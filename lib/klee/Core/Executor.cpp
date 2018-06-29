@@ -1560,7 +1560,6 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
                 // up with convenient instruction specific data.
                 if (statsTracker && state.stack.back().kf->trackCoverage)
                     statsTracker->markBranchVisited(branches.first, branches.second);
-                errs()
 
                 if (branches.first)
                     transferToBasicBlock(bi->getSuccessor(0), bi->getParent(), *branches.first);
